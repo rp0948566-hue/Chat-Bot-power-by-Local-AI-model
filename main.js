@@ -6,6 +6,7 @@ const OLLAMA_MODEL = 'llama3';
 
 let messages         = [];
 let isGenerating     = false;
+let messageQueue     = [];
 let currentAiEl      = null;
 let currentSessionId = null; 
 
@@ -31,10 +32,19 @@ let CLAUDE_SYSTEM_PROMPT = MODEL_PROMPTS[activeModel];
 
 async function getLinkedContext() {
     const linked = await db.getMemory('linked_accounts') || {};
-    let context = '';
-    if (linked.github) context += `\n- Linked GitHub: ${linked.github}. Analyze user projects and code from here if needed.`;
-    if (linked.linkedin) context += `\n- Linked LinkedIn: ${linked.linkedin}. Analyze user professional background from here if needed.`;
-    return context;
+    let context = '\n[USER PROFILE INTELLIGENCE]:';
+    
+    if (linked.github_data) {
+        const d = linked.github_data;
+        context += `\n- GITHUB: User @${d.login} (${d.name || 'User'}). Bio: ${d.bio || 'Professional'}.`;
+        context += `\n- REPOS: ${d.public_repos} total. Recent projects: ${d.repos.map(r => `${r.name} (${r.lang || 'Code'})`).join(', ')}.`;
+    }
+    
+    if (linked.linkedin) {
+        context += `\n- LINKEDIN: Professional profile at ${linked.linkedin}. Focus on career growth and networking.`;
+    }
+    
+    return context + '\n';
 }
 
 // ─── DOM References ─────────────────────────────────────────────────────────
@@ -62,6 +72,7 @@ const chatModelLabel = getEl('chat-model-label');
 const settingsModal  = getEl('settings-modal-overlay');
 const openSettingsBtn = getEl('open-settings-btn');
 const closeSettingsBtn = getEl('settings-close');
+const newChatBtn       = getEl('new-chat-btn');
 
 // ─── Global Constants Dependent on DOM ──────────────────────────────────────
 const modelOptions = document.querySelectorAll('.model-option');
@@ -82,7 +93,7 @@ function scrollBottom() {
 
 function simpleMarkdown(text) {
     if (!text) return '';
-    return text
+    let html = text
         .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
         .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
         .replace(/`([^`]+)`/g, '<code>$1</code>')
@@ -93,29 +104,90 @@ function simpleMarkdown(text) {
         .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
         .replace(/\*(.+?)\*/g, '<em>$1</em>')
         .replace(/__(.+?)__/g, '<u>$1</u>')
-        .replace(/^---$/gm, '<hr style="opacity:0.1; margin: 16px 0;">')
+        .replace(/^---$/gm, '<hr>')
+        // Task Lists
+        .replace(/^\[x\] (.*$)/gim, '<li class="task-list-item"><input type="checkbox" checked disabled> <span>$1</span></li>')
+        .replace(/^\[ \] (.*$)/gim, '<li class="task-list-item"><input type="checkbox" disabled> <span>$1</span></li>')
+        // Lists
+        .replace(/^\d+\. (.*$)/gim, '<li>$1</li>')
         .replace(/^\* (.*$)/gim, '<li>$1</li>')
-        .replace(/\n\n/g, '<br><br>')
-        .replace(/\n/g, '<br>');
+        // Blockquotes
+        .replace(/^> (.*$)/gim, '<blockquote>$1</blockquote>');
+
+    // Simple Table Support
+    if (html.includes('|')) {
+        const lines = html.split('\n');
+        let inTable = false;
+        let tableHtml = '<table>';
+        let newLines = [];
+
+        lines.forEach(line => {
+            if (line.trim().startsWith('|') && line.trim().endsWith('|')) {
+                if (!inTable) { inTable = true; tableHtml = '<table>'; }
+                const cells = line.split('|').filter(c => c.trim() !== '' || line.indexOf('|') !== line.lastIndexOf('|'));
+                const tag = tableHtml.includes('<thead>') ? 'td' : 'th';
+                const row = `<tr>${cells.map(c => `<${tag}>${c.trim()}</${tag}>`).join('')}</tr>`;
+                if (tag === 'th') {
+                    tableHtml += `<thead>${row}</thead><tbody>`;
+                } else {
+                    tableHtml += row;
+                }
+            } else {
+                if (inTable) { tableHtml += '</tbody></table>'; newLines.push(tableHtml); inTable = false; }
+                newLines.push(line);
+            }
+        });
+        if (inTable) { tableHtml += '</tbody></table>'; newLines.push(tableHtml); }
+        html = newLines.join('\n');
+    }
+
+    // Handle paragraphs and line breaks better
+    html = html.split('\n\n').map(p => {
+        if (p.trim().startsWith('<')) return p;
+        return `<p>${p.replace(/\n/g, '<br>')}</p>`;
+    }).join('');
+
+    return html;
 }
 
 function setGeneratingUI(active) {
     const stopSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="3"/></svg>`;
     const sendSvg = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>`;
-    
-    [homeSendBtn, chatSendBtn, homeTA, chatTA].forEach(el => { if(el) el.disabled = active; });
-    
+    const queueSvg = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>`;
+
+    // DO NOT disable inputs, allow continuous typing/queuing
     if (chatSendBtn) {
-        chatSendBtn.innerHTML = active ? stopSvg : sendSvg;
-        chatSendBtn.classList.toggle('loading', active);
+        if (active) {
+            chatSendBtn.innerHTML = queueSvg;
+            chatSendBtn.title = "Queue Message";
+            chatSendBtn.classList.add('queuing');
+        } else {
+            chatSendBtn.innerHTML = sendSvg;
+            chatSendBtn.title = "Send Message";
+            chatSendBtn.classList.remove('queuing', 'loading');
+        }
     }
 }
 
-function switchToChat(text) {
+function copyToClipboard(text, btn) {
+    navigator.clipboard.writeText(text).then(() => {
+        const original = btn.innerHTML;
+        btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>`;
+        setTimeout(() => btn.innerHTML = original, 2000);
+    });
+}
+
+function switchToChat() {
     homeView?.classList.remove('active');
     chatView?.classList.add('active');
     if (messagesArea) messagesArea.innerHTML = '';
     scrollBottom();
+}
+
+function switchToHome() {
+    chatView?.classList.remove('active');
+    homeView?.classList.add('active');
+    if (homeTA) setTimeout(() => homeTA.focus(), 50);
 }
 
 // ─── Interaction Logic ──────────────────────────────────────────────────────
@@ -167,13 +239,20 @@ tabPanes.forEach(pane => {
 });
 
 // ─── Messaging Engine ───────────────────────────────────────────────────────
-async function sendMessage(userText) {
+async function sendMessage(userText, isQueued = false) {
+    if (isGenerating && !isQueued) {
+        messageQueue.push(userText);
+        appendUserMessage(userText, true); // true = queued state
+        return;
+    }
+
     if (!currentSessionId) {
         const newSess = await db.createSession(userText.slice(0, 50), activeModel);
         currentSessionId = newSess.id;
         db.setMemory('current_session', currentSessionId);
         renderHistory();
     }
+    
     isGenerating = true;
     setGeneratingUI(true);
 
@@ -181,16 +260,45 @@ async function sendMessage(userText) {
     setActiveModel(modelKey);
 
     messages.push({ role: 'user', content: userText });
-    appendUserMessage(userText);
-    const aiEl = appendAIMessage();
+    if (!isQueued) appendUserMessage(userText);
+    else {
+        // Find the queued message and make it active
+        const lastQueued = messagesArea.querySelector('.message-row.user.queued');
+        if (lastQueued) {
+            lastQueued.classList.remove('queued');
+            lastQueued.querySelector('.queued-badge')?.remove();
+        }
+    }
 
+    const aiEl = appendAIMessage();
     await askOllama(aiEl);
 
     const linked = await getLinkedContext();
     if (messages.length <= 2) generateSessionTitle(currentSessionId, userText, linked);
 
     isGenerating = false;
+    
+    if (messageQueue.length > 0) {
+        const nextMsg = messageQueue.shift();
+        sendMessage(nextMsg, true);
+    } else {
+        setGeneratingUI(false);
+    }
+}
+
+async function startNewChat() {
+    currentSessionId = null;
+    messages = [];
+    messageQueue = [];
+    isGenerating = false;
+    
+    switchToHome();
+    if (messagesArea) messagesArea.innerHTML = '';
+    if (chatTitleText) chatTitleText.textContent = 'New Chat';
+    
+    await db.setMemory('current_session', null);
     setGeneratingUI(false);
+    renderHistory();
 }
 
 async function askOllama(aiEl) {
@@ -236,19 +344,40 @@ async function askOllama(aiEl) {
     }
 }
 
-function appendUserMessage(text) {
+function appendUserMessage(text, isQueued = false) {
     const row = document.createElement('div');
-    row.className = 'message-row user';
-    row.innerHTML = `<div class="user-bubble">${escapeHtml(text)}</div>`;
+    row.className = 'message-row user' + (isQueued ? ' queued' : '');
+    row.innerHTML = `
+        <div class="user-bubble">
+            ${isQueued ? '<span class="queued-badge">Queued</span>' : ''}
+            <div class="user-text">${escapeHtml(text)}</div>
+            <button class="msg-copy-btn" title="Copy Message">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+            </button>
+        </div>
+    `;
+    
+    row.querySelector('.msg-copy-btn').onclick = (e) => copyToClipboard(text, e.currentTarget);
+    
     messagesArea?.appendChild(row);
     scrollBottom();
-    if (currentSessionId) db.addMessage(currentSessionId, 'user', text, activeModel);
+    if (currentSessionId && !isQueued) db.addMessage(currentSessionId, 'user', text, activeModel);
 }
 
 function appendAIMessage() {
     const row = document.createElement('div');
     row.className = 'message-row assistant';
-    row.innerHTML = `<div class="ai-avatar neutral"></div><div class="ai-content"><div class="ai-text"><div class="typing-dots"><span></span><span></span><span></span></div></div></div>`;
+    row.innerHTML = `
+        <div class="ai-avatar neutral"></div>
+        <div class="ai-content">
+            <div class="ai-text">
+                <div class="typing-dots"><span></span><span></span><span></span></div>
+            </div>
+            <button class="msg-copy-btn ai" title="Copy Message">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+            </button>
+        </div>
+    `;
     messagesArea?.appendChild(row);
     scrollBottom();
     return row.querySelector('.ai-text');
@@ -256,6 +385,10 @@ function appendAIMessage() {
 
 function finalizeAIMessage(el, text, model) {
     el.innerHTML = simpleMarkdown(text);
+    const row = el.closest('.message-row');
+    const copyBtn = row.querySelector('.msg-copy-btn');
+    if (copyBtn) copyBtn.onclick = (e) => copyToClipboard(text, e.currentTarget);
+
     const note = document.createElement('div');
     note.className = 'upgrade-note';
     note.innerHTML = `Mode: <strong>${model}</strong>`;
@@ -264,12 +397,22 @@ function finalizeAIMessage(el, text, model) {
 
 async function generateSessionTitle(id, text, ctx) {
     try {
+        // Premium Intelligence Injection for title generation
+        const systemPrompt = "You are a world-class AI assistant with PhD-level intelligence, specializing in clear, structured, and sophisticated communication. You reason deeply and provide accurate, helpful, and beautifully formatted responses. Use headers, tables, task lists, and blockquotes whenever they improve clarity. Your persona is professional yet accessible, much like Claude or GPT-4. Always prioritize detail and accuracy.";
+        
         const res = await fetch(OLLAMA_URL, {
             method: 'POST',
-            body: JSON.stringify({ model: OLLAMA_MODEL, system: "Summarize in 3 words: " + ctx, messages: [{ role:'user', content: text }], stream: false })
+            body: JSON.stringify({ 
+                model: OLLAMA_MODEL, 
+                system: systemPrompt + " Summarize in 3 words (Max 5 words): " + ctx, 
+                messages: [{ role:'user', content: text }], 
+                stream: false 
+            })
         });
         const data = await res.json();
-        const title = (data.message?.content || text.slice(0, 20)).replace(/"/g,'');
+        let title = (data.message?.content || text.slice(0, 20)).replace(/"/g,'');
+        // Final word limit enforcement
+        title = title.split(' ').slice(0, 7).join(' ') + (title.split(' ').length > 7 ? '...' : '');
         await db.updateSession(id, { title });
         if (currentSessionId === id && chatTitleText) chatTitleText.textContent = title;
         renderHistory();
@@ -295,8 +438,7 @@ async function loadSession(id) {
     if (!s) return;
     currentSessionId = id;
     messages = await db.getMessages(id);
-    homeView?.classList.remove('active');
-    chatView?.classList.add('active');
+    switchToChat();
     if (messagesArea) {
         messagesArea.innerHTML = '';
         messages.forEach(m => m.role === 'user' ? appendUserMessage(m.content) : finalizeAIMessage(appendAIMessage(), m.content, m.model));
@@ -326,7 +468,11 @@ homeSendBtn?.addEventListener('click', () => {
 
 chatSendBtn?.addEventListener('click', () => {
     const val = chatTA.value.trim();
-    if (val && !isGenerating) { chatTA.value = ''; sendMessage(val); }
+    if (val) { 
+        chatTA.value = ''; 
+        chatTA.style.height = 'auto';
+        sendMessage(val); 
+    }
 });
 
 // Dropdown positioning
@@ -342,33 +488,109 @@ homeModelBtn?.addEventListener('click', (e) => { e.stopPropagation(); openModelD
 chatModelBtn?.addEventListener('click', (e) => { e.stopPropagation(); openModelDrop(chatModelBtn); });
 modelOptions.forEach(opt => opt.addEventListener('click', () => { setActiveModel(opt.dataset.model); modelDropdown?.classList.remove('open'); }));
 
-// Account Linking
-const linkBtns = document.querySelectorAll('.link-btn-pill, .link-action');
+newChatBtn?.addEventListener('click', startNewChat);
+getEl('back-to-home-btn')?.addEventListener('click', startNewChat);
+
+document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        startNewChat();
+    }
+});
+
+// Account Linking Logic (Deep Integration)
+async function fetchGitHubProfile(token) {
+    try {
+        const h = { 'Authorization': `token ${token}` };
+        const [uRes, rRes] = await Promise.all([
+            fetch('https://api.github.com/user', { headers: h }),
+            fetch('https://api.github.com/user/repos?sort=updated&per_page=5', { headers: h })
+        ]);
+        if (!uRes.ok) throw new Error('Invalid Token');
+        const user = await uRes.json();
+        const repos = await rRes.json();
+        return {
+            login: user.login,
+            name: user.name,
+            bio: user.bio,
+            public_repos: user.public_repos,
+            repos: repos.map(r => ({ name: r.name, lang: r.language, url: r.html_url }))
+        };
+    } catch (e) { console.error('GitHub Sync Error:', e); return null; }
+}
+
 async function updateLinkUI() {
     const linked = await db.getMemory('linked_accounts') || {};
-    document.querySelectorAll('.link-item').forEach(item => {
-        const type = item.innerText.toLowerCase();
-        const btn = item.querySelector('.link-btn-pill, .link-action');
-        if (btn && ((type.includes('linkedin') && linked.linkedin) || (type.includes('github') && linked.github))) {
-            btn.innerHTML = `<span class="connected">Connected</span>`;
-        }
-    });
+    
+    // GitHub
+    const ghMeta = document.getElementById('github-metadata');
+    const ghBtn  = document.getElementById('link-github-btn');
+    if (linked.github_data && ghMeta && ghBtn) {
+        const d = linked.github_data;
+        ghMeta.style.display = 'block';
+        ghMeta.innerHTML = `Connected as <strong>@${d.login}</strong> • ${d.public_repos} repos`;
+        ghBtn.innerText = 'Connected';
+        ghBtn.classList.add('connected');
+    }
+
+    // LinkedIn
+    const liMeta = document.getElementById('linkedin-metadata');
+    const liBtn  = document.getElementById('link-linkedin-btn');
+    if (linked.linkedin && liMeta && liBtn) {
+        liMeta.style.display = 'block';
+        liMeta.innerHTML = `Linked: ${linked.linkedin.slice(0, 30)}...`;
+        liBtn.innerText = 'Connected';
+        liBtn.classList.add('connected');
+    }
 }
-linkBtns.forEach(btn => btn.addEventListener('click', async () => {
-    const type = btn.closest('.link-item').innerText.split('\n')[0].trim().toLowerCase();
-    const url = prompt(`Enter ${type} URL:`);
+
+document.getElementById('link-github-btn')?.addEventListener('click', async () => {
+    const token = prompt('Enter your GitHub Personal Access Token (classic, with repo scope):');
+    if (token) {
+        const btn = document.getElementById('link-github-btn');
+        const originalText = btn.innerText;
+        btn.innerText = 'Syncing...';
+        const data = await fetchGitHubProfile(token);
+        if (data) {
+            const linked = await db.getMemory('linked_accounts') || {};
+            linked.github_token = token;
+            linked.github_data = data;
+            await db.setMemory('linked_accounts', linked);
+            updateLinkUI();
+            alert(`Success! Successfully connected to @${data.login}.`);
+        } else {
+            alert('Error: Failed to fetch profile. Check your token.');
+            btn.innerText = originalText;
+        }
+    }
+});
+
+document.getElementById('link-linkedin-btn')?.addEventListener('click', async () => {
+    const url = prompt('Enter your LinkedIn Profile URL:');
     if (url) {
         const linked = await db.getMemory('linked_accounts') || {};
-        linked[type] = url;
+        linked.linkedin = url;
         await db.setMemory('linked_accounts', linked);
         updateLinkUI();
     }
-}));
+});
 
 // RUN 
 (async () => {
-    await updateLinkUI();
-    const last = await db.getMemory('current_session');
-    if (last) await loadSession(last); else await renderHistory();
-    setActiveModel(activeModel);
+    try {
+        await updateLinkUI();
+        const last = await db.getMemory('current_session');
+        if (last) {
+            await loadSession(last);
+        } else {
+            homeView?.classList.add('active');
+            await renderHistory();
+        }
+        setActiveModel(activeModel);
+    } catch (err) {
+        console.error('Init error:', err);
+        // Always show home view as safe fallback
+        homeView?.classList.add('active');
+        chatView?.classList.remove('active');
+    }
 })();
