@@ -786,8 +786,18 @@ document.getElementById('menu-delete')?.addEventListener('click', async (e) => {
         onConfirm: async () => {
             await db.deleteSession(contextSessionId);
             await fetch(`http://localhost:3001/api/delete_session/${contextSessionId}`, { method: 'DELETE' }).catch(() => {});
-            if (currentSessionId === contextSessionId) startNewChat();
-            else renderHistory();
+            
+            // STAY in the history panel after deletion
+            if (currentSessionId === contextSessionId) {
+                // If we deleted the active chat, reset the view but keep history open
+                currentSessionId = null;
+                messages = [];
+                if (messagesArea) messagesArea.innerHTML = '';
+                if (chatTitleText) chatTitleText.textContent = 'New Chat';
+                switchToHome();
+            }
+            
+            renderHistory();
         }
     });
 });
@@ -1107,7 +1117,9 @@ panelBackBtn?.addEventListener('click', () => {
 
 document.addEventListener('click', (e) => {
     if (historyPanel?.classList.contains('active')) {
-        if (!historyPanel.contains(e.target) && !railChat?.contains(e.target)) {
+        // Don't close if clicking inside history panel, rail toggle, or active modals
+        const isClickInsideModal = e.target.closest('.modal-overlay') || e.target.closest('.modal-content');
+        if (!historyPanel.contains(e.target) && !railChat?.contains(e.target) && !isClickInsideModal) {
             historyPanel.classList.remove('active');
             mainLayout?.classList.remove('history-open');
             document.body.classList.remove('history-panel-open');
