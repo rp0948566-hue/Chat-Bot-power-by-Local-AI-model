@@ -79,6 +79,22 @@ Always be helpful, harmless, and honest. You are powered by a local AI model.`
 let activeModel = localStorage.getItem('active_model') || 'instant';
 let CLAUDE_SYSTEM_PROMPT = MODEL_PROMPTS[activeModel];
 
+async function getLinkedContext() {
+    const linked = await db.getMemory('linked_accounts') || {};
+    let context = '';
+    if (linked.github) context += `\n- Linked GitHub: ${linked.github}. Analyze user projects and code from here if needed.`;
+    if (linked.linkedin) context += `\n- Linked LinkedIn: ${linked.linkedin}. Analyze user professional background from here if needed.`;
+    return context;
+}
+
+async function getLinkedContext() {
+    const linked = await db.getMemory('linked_accounts') || {};
+    let context = '';
+    if (linked.github) context += `\n- Linked GitHub: ${linked.github}. Analyze user projects and code from here if needed.`;
+    if (linked.linkedin) context += `\n- Linked LinkedIn: ${linked.linkedin}. Analyze user professional background from here if needed.`;
+    return context;
+}
+
 // ─── DOM Refs ──────────────────────────────────────────────────────────────
 const homeView      = document.getElementById('home-view');
 const chatView      = document.getElementById('chat-view');
@@ -416,9 +432,10 @@ async function sendMessage(userText) {
     await askOllama(aiEl);
 
     // ── Generate Session Title via Local AI (Autonomous Title) ──
+    const linkedContext = await getLinkedContext();
     const sessionMessages = await db.getMessages(currentSessionId);
     if (sessionMessages.length <= 2) {
-        generateSessionTitle(currentSessionId, userText);
+        generateSessionTitle(currentSessionId, userText, linkedContext);
     }
 
     isGenerating = false;
@@ -426,14 +443,14 @@ async function sendMessage(userText) {
     scrollBottom();
 }
 
-async function generateSessionTitle(sessId, promptText) {
+async function generateSessionTitle(sessId, promptText, linkedContext = '') {
     try {
         const res = await fetch(OLLAMA_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 model: OLLAMA_MODEL,
-                system: "Output ONLY a 3-5 word title for this chat based on the user prompt. No quotes.",
+                system: "Output ONLY a 3-5 word title for this chat. Context: " + linkedContext,
                 messages: [{ role: 'user', content: promptText }],
                 stream: false
             })
@@ -475,12 +492,13 @@ async function askOllama(aiEl) {
         const recentTopics = historyMetadata.slice(0, 5).map(s => s.title).join(', ');
         const memoryContext = recentTopics ? `\n[LONG-TERM MEMORY: You have previously discussed: ${recentTopics}. Use this if relevant.]\n` : '';
 
+        const linkedContext = await getLinkedContext();
         const res = await fetch(OLLAMA_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 model: OLLAMA_MODEL,
-                system: CLAUDE_SYSTEM_PROMPT + memoryContext,
+                system: CLAUDE_SYSTEM_PROMPT + memoryContext + linkedContext,
                 messages: messages,
                 stream: true
             })
@@ -686,9 +704,43 @@ window.addEventListener('keydown', (e) => {
     }
 });
 
+// ─── ACCOUNT LINKING LOGIC ────────────────────────────────────────────────
+const linkedAccountBtns = document.querySelectorAll('.link-btn-pill, .link-action');
+
+async function updateLinkedUI() {
+    const linked = await db.getMemory('linked_accounts') || {};
+    document.querySelectorAll('.link-item').forEach(item => {
+        const type = item.innerText.toLowerCase();
+        const btn = item.querySelector('.link-btn-pill, .link-action');
+        if (type.includes('linkedin') && linked.linkedin) {
+            btn.innerHTML = `<span class="connected">Connected</span>`;
+            btn.title = linked.linkedin;
+        } else if (type.includes('github') && linked.github) {
+            btn.innerHTML = `<span class="connected">Connected</span>`;
+            btn.title = linked.github;
+        }
+    });
+}
+
+linkedAccountBtns.forEach(btn => {
+    btn.addEventListener('click', async () => {
+        const item = btn.closest('.link-item');
+        const type = item.innerText.split('\n')[0].trim().toLowerCase();
+        const url = prompt(`Enter your ${type} profile URL or handle:`);
+        if (url) {
+            const linked = await db.getMemory('linked_accounts') || {};
+            if (type === 'linkedin') linked.linkedin = url;
+            else if (type === 'github') linked.github = url;
+            await db.setMemory('linked_accounts', linked);
+            updateLinkedUI();
+        }
+    });
+});
+
 // Init on load
 (async () => {
     try {
+        await updateLinkedUI();
         const lastSessionId = await db.getMemory('current_session');
         if (lastSessionId) {
             await loadSession(lastSessionId);
