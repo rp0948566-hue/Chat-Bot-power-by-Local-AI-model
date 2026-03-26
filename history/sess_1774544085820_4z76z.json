@@ -1,0 +1,27 @@
+{
+  "id": "sess_1774544085820_4z76z",
+  "title": "Write a very long poem about the history of the un",
+  "model": "instant",
+  "createdAt": "2026-03-26T16:54:45.820Z",
+  "updatedAt": "2026-03-26T16:55:06.051Z",
+  "isPinned": false,
+  "folderId": null,
+  "messages": [
+    {
+      "sessionId": "sess_1774544085820_4z76z",
+      "role": "user",
+      "content": "Write a very long poem about the history of the universe",
+      "model": "instant",
+      "timestamp": "2026-03-26T16:54:45.846Z",
+      "id": 15
+    },
+    {
+      "sessionId": "sess_1774544085820_4z76z",
+      "role": "user",
+      "content": "Write a very long poem about the history of the universe",
+      "model": "instant",
+      "timestamp": "2026-03-26T16:55:06.039Z",
+      "id": 17
+    }
+  ]
+}

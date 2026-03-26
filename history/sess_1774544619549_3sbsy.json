@@ -1,0 +1,19 @@
+{
+  "id": "sess_1774544619549_3sbsy",
+  "title": "hi",
+  "model": "instant",
+  "createdAt": "2026-03-26T17:03:39.549Z",
+  "updatedAt": "2026-03-26T17:03:39.567Z",
+  "isPinned": false,
+  "folderId": null,
+  "messages": [
+    {
+      "sessionId": "sess_1774544619549_3sbsy",
+      "role": "user",
+      "content": "hi",
+      "model": "instant",
+      "timestamp": "2026-03-26T17:03:39.562Z",
+      "id": 26
+    }
+  ]
+}

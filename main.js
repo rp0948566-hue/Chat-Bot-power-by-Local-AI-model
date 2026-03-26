@@ -2,7 +2,7 @@
 import { db } from './db.js';
 
 const OLLAMA_URL   = 'http://localhost:11434/api/chat';
-const OLLAMA_MODEL = 'llama3';
+const OLLAMA_MODEL = 'llama3:latest';
 
 let messages         = [];
 let isGenerating     = false;
@@ -422,7 +422,15 @@ async function startNewChat() {
 
 async function askOllama(aiEl) {
     let full = '';
+    let partialMessageId = null;
     try {
+        // Create the assistant message record IMMEDIATELY as a placeholder
+        const m = await db.addMessage(currentSessionId, 'assistant', '', { 
+            model: activeModel, 
+            interrupted: true 
+        });
+        partialMessageId = m.id;
+
         const history = await db.getAllSessions();
         const memory = history.slice(0, 3).map(s => s.title).join(', ');
         const memoryCtx = memory ? `\n[Past discussions: ${memory}]` : '';
@@ -440,7 +448,7 @@ async function askOllama(aiEl) {
         const decoder = new TextDecoder();
         aiEl.innerHTML = '';
         let tokenCount = 0;
-        let partialMessageId = null;
+        
         while (true) {
             const { done, value } = await reader.read();
             if (done) break;
@@ -453,22 +461,14 @@ async function askOllama(aiEl) {
                     tokenCount++;
                     aiEl.innerHTML = simpleMarkdown(full);
                     scrollBottom();
+                    
                     if (tokenCount % 10 === 0) {
-                        if (!partialMessageId) {
-                            const m = await db.addMessage(currentSessionId, 'assistant', full, activeModel);
-                            partialMessageId = m.id;
-                        } else {
-                            await db.updateMessage(partialMessageId, { content: full });
-                        }
+                        await db.updateMessage(partialMessageId, { content: full });
                     }
                 } catch {}
             }
         }
-        if (partialMessageId) {
-            await db.updateMessage(partialMessageId, { content: full, interrupted: false });
-        } else {
-            await db.addMessage(currentSessionId, 'assistant', full, activeModel);
-        }
+        await db.updateMessage(partialMessageId, { content: full, interrupted: false });
         messages.push({ role: 'assistant', content: full });
         finalizeAIMessage(aiEl, full, activeModel);
         await syncSessionToDisk(currentSessionId);
@@ -511,7 +511,7 @@ async function appendUserMessage(text, isQueued = false) {
     messagesArea?.appendChild(row);
     scrollBottom();
     if (currentSessionId && !isQueued) {
-        await db.addMessage(currentSessionId, 'user', text, activeModel);
+        await db.addMessage(currentSessionId, 'user', text, { model: activeModel });
         await syncSessionToDisk(currentSessionId);
     }
 }
@@ -565,6 +565,31 @@ function finalizeAIMessage(el, text, model) {
     note.className = 'upgrade-note';
     note.innerHTML = `Mode: <strong>${model}</strong>`;
     el.parentElement.appendChild(note);
+}
+
+function appendInterruptionUI(row, sessionId, msgId) {
+    const container = document.createElement('div');
+    container.className = 'interrupted-container';
+    container.innerHTML = `
+        <div class="interrupted-text">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            Message is interrupted because of user
+        </div>
+        <button class="restart-btn">Restart</button>
+    `;
+    container.querySelector('.restart-btn').onclick = () => restartResponse(sessionId, msgId);
+    row.querySelector('.ai-content').appendChild(container);
+}
+
+async function restartResponse(sessionId, msgId) {
+    await db.deleteMessage(msgId);
+    await loadSession(sessionId);
+    const msgs = await db.getMessages(sessionId);
+    const aiEl = appendAIMessage();
+    isGenerating = true;
+    setGeneratingUI(true);
+    messages = msgs.map(m => ({ role: m.role, content: m.content }));
+    await askOllama(aiEl);
 }
 
 async function generateSessionTitle(id, text, ctx) {
@@ -731,6 +756,11 @@ async function loadSession(id) {
                     </div>`;
             }
             fragment.appendChild(row);
+            
+            // If it's the last message and interrupted, show recovery UI
+            if (m === messages[messages.length - 1] && m.role === 'assistant' && m.interrupted) {
+                appendInterruptionUI(row, id, m.id);
+            }
         });
         messagesArea.appendChild(fragment);
     }

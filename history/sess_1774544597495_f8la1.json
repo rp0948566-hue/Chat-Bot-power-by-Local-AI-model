@@ -1,0 +1,19 @@
+{
+  "id": "sess_1774544597495_f8la1",
+  "title": "hi",
+  "model": "instant",
+  "createdAt": "2026-03-26T17:03:17.495Z",
+  "updatedAt": "2026-03-26T17:03:17.513Z",
+  "isPinned": false,
+  "folderId": null,
+  "messages": [
+    {
+      "sessionId": "sess_1774544597495_f8la1",
+      "role": "user",
+      "content": "hi",
+      "model": "instant",
+      "timestamp": "2026-03-26T17:03:17.506Z",
+      "id": 27254
+    }
+  ]
+}

@@ -142,10 +142,10 @@ class ChatDB {
 
     // ── Messages ──────────────────────────────────────────────────────────
 
-    async addMessage(sessionId, role, content, model = 'instant') {
+    async addMessage(sessionId, role, content, extra = {}) {
         await this._ready;
         const timestamp = new Date().toISOString();
-        const msg = { sessionId, role, content, model, timestamp };
+        const msg = { sessionId, role, content, timestamp, ...extra };
         const id  = await this._req(
             this._db.transaction(STORES.messages, 'readwrite')
                     .objectStore(STORES.messages).add(msg)

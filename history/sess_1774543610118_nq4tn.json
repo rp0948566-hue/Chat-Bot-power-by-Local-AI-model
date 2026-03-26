@@ -1,9 +1,9 @@
 {
   "id": "sess_1774543610118_nq4tn",
-  "title": "Hello, are you running Llama 3?",
+  "title": "I'm not a llama, nor am I",
   "model": "instant",
   "createdAt": "2026-03-26T16:46:50.118Z",
-  "updatedAt": "2026-03-26T16:48:04.918Z",
+  "updatedAt": "2026-03-26T16:49:52.945Z",
   "isPinned": false,
   "folderId": null,
   "messages": [
@@ -31,6 +31,22 @@
       "model": "instant",
       "timestamp": "2026-03-26T16:48:04.899Z",
       "id": 11
+    },
+    {
+      "sessionId": "sess_1774543610118_nq4tn",
+      "role": "assistant",
+      "content": "I'd be happy to tell you more about myself.\n\nI am an artificial intelligence language model designed by Meta AI that can understand and respond to human input in a conversational manner. My primary function is to engage with users, answer their questions, provide information, and even generate text based on the topic or prompt provided.\n\nHere are some key facts about me:\n\n1. **Training**: I was trained on a massive dataset of text from various sources, including books, articles, and online conversations. This training allows me to understand language patterns, context,",
+      "model": "instant",
+      "timestamp": "2026-03-26T16:48:39.354Z",
+      "id": 12
+    },
+    {
+      "sessionId": "sess_1774543610118_nq4tn",
+      "role": "user",
+      "content": "Verify model: are you Llama 3?",
+      "model": "instant",
+      "timestamp": "2026-03-26T16:49:52.935Z",
+      "id": 13
     }
   ]
 }

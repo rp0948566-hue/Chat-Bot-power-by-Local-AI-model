@@ -1,0 +1,19 @@
+{
+  "id": "sess_1774544157521_lp5ce",
+  "title": "Write a very long poem about the history of the un",
+  "model": "thinking",
+  "createdAt": "2026-03-26T16:55:57.521Z",
+  "updatedAt": "2026-03-26T16:55:57.614Z",
+  "isPinned": false,
+  "folderId": null,
+  "messages": [
+    {
+      "sessionId": "sess_1774544157521_lp5ce",
+      "role": "user",
+      "content": "Write a very long poem about the history of the universe. Explain the Big Bang and everything that happened later in many details.",
+      "model": "thinking",
+      "timestamp": "2026-03-26T16:55:57.590Z",
+      "id": 19
+    }
+  ]
+}
