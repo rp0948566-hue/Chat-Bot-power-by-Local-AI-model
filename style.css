@@ -502,3 +502,60 @@ input:checked + .slider:before { transform: translateX(20px); }
     border: solid white; border-width: 0 2px 2px 0; transform: rotate(45deg);
 }
 .check-box-row span { font-size: 14px; color: #d1d1d1; }
+
+/* ── COMPUTER USE / SYSTEM ACTIONS ────────── */
+.message-row.system-action {
+    flex-direction: column;
+    padding: 12px 24px;
+    gap: 8px;
+    max-width: 900px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+.action-status {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.action-body {
+    width: 100%;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-top: 4px;
+}
+
+.terminal-out {
+    padding: 12px 16px;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    color: #a5adcb;
+    white-space: pre-wrap;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.terminal-out.error {
+    color: #ed8796;
+}
+
+.action-screenshot {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 500px;
+    object-fit: contain;
+    background: #000;
+}
+
+/* Custom Scrollbar for Terminal */
+.terminal-out::-webkit-scrollbar { width: 6px; }
+.terminal-out::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+.terminal-out::-webkit-scrollbar-track { background: transparent; }
