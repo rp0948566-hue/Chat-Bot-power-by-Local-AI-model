@@ -9,6 +9,7 @@
     --text: #e2e2e8;
     --muted: #6b6b78;
     --blue: #3b82f6;
+    --surface: #111115;
     --sidebar-width: 280px;
     --header-h: 56px;
     --transition: all 0.22s cubic-bezier(0.4,0,0.2,1);
@@ -35,8 +36,9 @@ body::before, body::after {
     position: fixed;
     top: 0;
     left: 0;
-    z-index: 1000;
+    z-index: 9999;
     transition: width 0.35s cubic-bezier(0.25, 1, 0.5, 1), transform 0.35s cubic-bezier(0.25, 1, 0.5, 1);
+    pointer-events: auto;
 }
 .sidebar.collapsed { transform: translateX(-100%); }
 
@@ -51,7 +53,8 @@ body::before, body::after {
     background: var(--surface);
     border-right: 1px solid var(--border);
     position: relative;
-    z-index: 1000;
+    z-index: 1001;
+    pointer-events: auto;
 }
 
 .rail-item {
@@ -66,6 +69,7 @@ body::before, body::after {
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
     text-decoration: none;
+    pointer-events: auto;
 }
 
 .rail-item:hover {
@@ -101,6 +105,8 @@ body::before, body::after {
     padding-bottom: 16px;
     display: flex;
     justify-content: center;
+    z-index: 1001;
+    pointer-events: auto;
 }
 
 .user-row {
@@ -161,7 +167,7 @@ body::before, body::after {
     display: flex;
     flex-direction: column;
     /* Rise from below, starting slightly shifted left to feel like it's from the sidebar */
-    transform: translate(-10%, 110%) scale(0.8);
+    transform: translate(0, 110%) scale(0.8);
     transform-origin: left bottom;
     opacity: 0;
     pointer-events: none;
@@ -383,6 +389,7 @@ body::before, body::after {
     overflow: hidden;
     background: var(--bg);
     transition: margin-left 0.35s cubic-bezier(0.25, 1, 0.5, 1);
+    z-index: 100;
 }
 .main-layout.sidebar-collapsed {
     margin-left: 0;

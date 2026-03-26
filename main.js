@@ -8,12 +8,10 @@ let messages         = [];
 let isGenerating     = false;
 let messageQueue     = [];
 let currentAiEl      = null;
-let currentSessionId = null; 
+let currentSessionId = null;
 
-// ── SYSTEM PROMPTS (PhD-Level Phrasing) ──────────────────────────────────────
 // ── SYSTEM PROMPTS (PhD-Level Computer Use) ──────────────────────────────────
-const COMPUTER_USE_DIRECTIVE = `
-YOU HAVE COMPUTER CONTROL CAPABILITIES.
+const COMPUTER_USE_DIRECTIVE = `YOU HAVE COMPUTER CONTROL CAPABILITIES.
 To perform an action on the user's laptop, output a JSON block in this exact format:
 \`\`\`action
 {
@@ -34,9 +32,7 @@ Actions you can take:
 - mouse_click: { "button": "left" }
 - type_text: { "text": "t" }
 - key_press: { "keys": "k" } (e.g. "^c" for Ctrl+C)
-
-Always proceed step-by-step. If you need to see the screen, take a screenshot first. If you need to find a file, search first.
-`;
+Always proceed step-by-step. If you need to see the screen, take a screenshot first. If you need to find a file, search first.`;
 
 const MODEL_PROMPTS = {
     instant: `You are a Local Intelligence Engine with COMPUTER CONTROL.\n${COMPUTER_USE_DIRECTIVE}\nTONE: Warm, professional.`,
@@ -54,17 +50,14 @@ let CLAUDE_SYSTEM_PROMPT = MODEL_PROMPTS[activeModel];
 async function getLinkedContext() {
     const linked = await db.getMemory('linked_accounts') || {};
     let context = '\n[USER PROFILE INTELLIGENCE]:';
-    
     if (linked.github_data) {
         const d = linked.github_data;
         context += `\n- GITHUB: User @${d.login} (${d.name || 'User'}). Bio: ${d.bio || 'Professional'}.`;
         context += `\n- REPOS: ${d.public_repos} total. Recent projects: ${d.repos.map(r => `${r.name} (${r.lang || 'Code'})`).join(', ')}.`;
     }
-    
     if (linked.linkedin) {
         context += `\n- LINKEDIN: Professional profile at ${linked.linkedin}. Focus on career growth and networking.`;
     }
-    
     return context + '\n';
 }
 
@@ -82,6 +75,7 @@ const chatTitleText  = getEl('chat-title-text');
 const historyList    = getEl('history-list');
 const sidebar        = getEl('sidebar');
 const overlay        = getEl('sidebar-overlay');
+const mainLayout     = getEl('main-layout');
 const userRow        = getEl('user-profile-row');
 const userPopup      = getEl('user-popup');
 const popupLoginBtn  = getEl('popup-login-btn');
@@ -93,27 +87,22 @@ const chatModelLabel = getEl('chat-model-label');
 const settingsModal  = getEl('settings-modal-overlay');
 const openSettingsBtn = getEl('open-settings-btn');
 const closeSettingsBtn = getEl('settings-close');
-const newChatBtn       = getEl('new-chat-btn');
+const newChatBtn       = getEl('nav-new-chat-rail'); // Re-mapped to railway icon
 
 // ─── Global Constants Dependent on DOM ──────────────────────────────────────
 const modelOptions = document.querySelectorAll('.model-option');
 const settingsNavItems = document.querySelectorAll('.settings-nav-item');
-
 const modalOverlay = getEl('custom-modal-overlay');
 const modalTitle   = getEl('modal-title');
 const modalText    = getEl('modal-text');
 const modalCancel  = getEl('modal-cancel-btn');
 const modalConfirm = getEl('modal-confirm-btn');
 
-/**
- * Custom Modal Utility
- * @param {Object} options - { title, text, confirmText, onConfirm }
- */
 function showModal({ title, text, confirmText, onConfirm, showInput = false, inputValue = '' }) {
     if (modalTitle) modalTitle.innerText = title;
     if (modalText) modalText.innerText = text;
     if (modalConfirm) modalConfirm.innerText = confirmText || 'Confirm';
-    
+
     // Support input for Rename
     let inputEl = document.getElementById('modal-input');
     if (!inputEl && showInput) {
@@ -127,26 +116,24 @@ function showModal({ title, text, confirmText, onConfirm, showInput = false, inp
         inputEl.value = inputValue;
         if (showInput) setTimeout(() => inputEl.focus(), 100);
     }
-
     modalOverlay.classList.add('active');
-
     const cleanup = () => {
         modalOverlay.classList.remove('active');
         modalConfirm.onclick = null;
         modalCancel.onclick  = null;
     };
-
-    modalConfirm.onclick = () => { 
-        if (showInput) {
+    modalConfirm.onclick = () => {
+         if (showInput) {
             onConfirm(inputEl.value);
         } else {
             onConfirm();
         }
-        cleanup(); 
-    };
+        cleanup();
+     };
     modalCancel.onclick  = cleanup;
     modalOverlay.onclick = (e) => { if (e.target === modalOverlay) cleanup(); };
 }
+
 const tabPanes = document.querySelectorAll('.tab-pane');
 
 // ─── Utility Functions ──────────────────────────────────────────────────────
@@ -175,22 +162,16 @@ function simpleMarkdown(text) {
         .replace(/\*(.+?)\*/g, '<em>$1</em>')
         .replace(/__(.+?)__/g, '<u>$1</u>')
         .replace(/^---$/gm, '<hr>')
-        // Task Lists
         .replace(/^\[x\] (.*$)/gim, '<li class="task-list-item"><input type="checkbox" checked disabled> <span>$1</span></li>')
         .replace(/^\[ \] (.*$)/gim, '<li class="task-list-item"><input type="checkbox" disabled> <span>$1</span></li>')
-        // Lists
         .replace(/^\d+\. (.*$)/gim, '<li>$1</li>')
         .replace(/^\* (.*$)/gim, '<li>$1</li>')
-        // Blockquotes
         .replace(/^> (.*$)/gim, '<blockquote>$1</blockquote>');
-
-    // Simple Table Support
     if (html.includes('|')) {
         const lines = html.split('\n');
         let inTable = false;
         let tableHtml = '<table>';
         let newLines = [];
-
         lines.forEach(line => {
             if (line.trim().startsWith('|') && line.trim().endsWith('|')) {
                 if (!inTable) { inTable = true; tableHtml = '<table>'; }
@@ -210,22 +191,16 @@ function simpleMarkdown(text) {
         if (inTable) { tableHtml += '</tbody></table>'; newLines.push(tableHtml); }
         html = newLines.join('\n');
     }
-
-    // Handle paragraphs and line breaks better
     html = html.split('\n\n').map(p => {
         if (p.trim().startsWith('<')) return p;
         return `<p>${p.replace(/\n/g, '<br>')}</p>`;
     }).join('');
-
     return html;
 }
 
 function setGeneratingUI(active) {
-    const stopSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="3"/></svg>`;
     const sendSvg = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>`;
     const queueSvg = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>`;
-
-    // DO NOT disable inputs, allow continuous typing/queuing
     if (chatSendBtn) {
         if (active) {
             chatSendBtn.innerHTML = queueSvg;
@@ -281,17 +256,15 @@ function setActiveModel(key) {
     modelOptions.forEach(opt => opt.classList.toggle('active', opt.dataset.model === key));
 }
 
-// Modal handling
 const toggleSidebar = () => { sidebar?.classList.toggle('collapsed'); document.querySelector('.main-layout')?.classList.toggle('sidebar-collapsed'); };
 const closeSidebar = () => { sidebar?.classList.add('collapsed'); document.querySelector('.main-layout')?.classList.add('sidebar-collapsed'); };
 
 ['global-main-toggle'].forEach(id => getEl(id)?.addEventListener('click', toggleSidebar));
-getEl('sidebar-close')?.addEventListener('click', closeSidebar);
 overlay?.addEventListener('click', closeSidebar);
 
-// User Popup & Settings
 userRow?.addEventListener('click', (e) => { e.stopPropagation(); userPopup?.classList.toggle('active'); });
 document.addEventListener('click', () => { userPopup?.classList.remove('active'); modelDropdown?.classList.remove('open'); });
+
 openSettingsBtn?.addEventListener('click', () => { settingsModal?.classList.add('active'); userPopup?.classList.remove('active'); });
 closeSettingsBtn?.addEventListener('click', () => settingsModal?.classList.remove('active'));
 settingsModal?.addEventListener('click', (e) => { if(e.target === settingsModal) settingsModal.classList.remove('active'); });
@@ -312,43 +285,33 @@ tabPanes.forEach(pane => {
 async function sendMessage(userText, isQueued = false) {
     if (isGenerating && !isQueued) {
         messageQueue.push(userText);
-        appendUserMessage(userText, true); // true = queued state
+        appendUserMessage(userText, true); 
         return;
     }
-
     if (!currentSessionId) {
         const newSess = await db.createSession(userText.slice(0, 50), activeModel);
         currentSessionId = newSess.id;
         db.setMemory('current_session', currentSessionId);
         renderHistory();
     }
-    
     isGenerating = true;
     setGeneratingUI(true);
-
     const modelKey = detectModel(userText);
     setActiveModel(modelKey);
-
     messages.push({ role: 'user', content: userText });
     if (!isQueued) appendUserMessage(userText);
     else {
-        // Find the queued message and make it active
         const lastQueued = messagesArea.querySelector('.message-row.user.queued');
         if (lastQueued) {
             lastQueued.classList.remove('queued');
             lastQueued.querySelector('.queued-badge')?.remove();
         }
     }
-
     const aiEl = appendAIMessage();
     await askOllama(aiEl);
-
     const linked = await getLinkedContext();
     if (messages.length <= 2) generateSessionTitle(currentSessionId, userText, linked);
-
     isGenerating = false;
-    
-    // Check for action blocks in final AI response
     const actionMatch = messages[messages.length - 1].content.match(/```action\n([\s\S]*?)\n```/);
     if (actionMatch) {
         try {
@@ -358,10 +321,8 @@ async function sendMessage(userText, isQueued = false) {
             console.error('Action parse error:', e);
         }
     }
-
     await syncSessionToDisk(currentSessionId);
     await updateAIPersona();
-
     if (messageQueue.length > 0) {
         const nextMsg = messageQueue.shift();
         sendMessage(nextMsg, true);
@@ -379,23 +340,19 @@ async function handleAction(action) {
             body: JSON.stringify(action)
         });
         const data = await res.json();
-        
         if (data.success) {
             if (action.type === 'screenshot') {
                 finalizeActionImage(resultArea, data.output);
-                const feedback = `Action: ${action.type} succeeded. Screenshot received.`;
-                messages.push({ role: 'user', content: `[SYSTEM FEEDBACK]: ${feedback}` });
+                messages.push({ role: 'user', content: `[SYSTEM FEEDBACK]: Action: ${action.type} succeeded.` });
                 sendMessage("I've taken a screenshot. Analyzing it now...", true);
             } else {
                 finalizeActionResult(resultArea, `Success: ${data.output}`);
-                const feedback = `Action: ${action.type} succeeded. Result: ${data.output}`;
-                messages.push({ role: 'user', content: `[SYSTEM FEEDBACK]: ${feedback}` });
+                messages.push({ role: 'user', content: `[SYSTEM FEEDBACK]: Action: ${action.type} succeeded.` });
                 sendMessage("Action complete. Continuing...", true);
             }
         } else {
             finalizeActionResult(resultArea, `Error: ${data.error}`, true);
-            const feedback = `Action: ${action.type} failed. Error: ${data.error}`;
-            messages.push({ role: 'user', content: `[SYSTEM FEEDBACK]: ${feedback}` });
+            messages.push({ role: 'user', content: `[SYSTEM FEEDBACK]: Action: ${action.type} failed.` });
             sendMessage("Action failed. Let me try a different approach...", true);
         }
     } catch (e) {
@@ -430,10 +387,29 @@ async function startNewChat() {
     messageQueue = [];
     isGenerating = false;
     
+    // Close history panel if open
+    const historyPanel = document.getElementById('history-panel');
+    const mainLayout = document.getElementById('main-layout');
+    historyPanel?.classList.remove('active');
+    mainLayout?.classList.remove('history-open');
+    document.querySelectorAll('.rail-item').forEach(item => item.classList.remove('active'));
+    document.getElementById('nav-home')?.classList.add('active');
+
     switchToHome();
+    
+    // Clear textareas and reset buttons
+    const homeTA = document.getElementById('home-textarea');
+    const chatTA = document.getElementById('chat-textarea');
+    const homeSendBtn = document.getElementById('home-send-btn');
+    const chatSendBtn = document.getElementById('chat-send-btn');
+    
+    if (homeTA) { homeTA.value = ''; homeTA.style.height = 'auto'; }
+    if (chatTA) { chatTA.value = ''; chatTA.style.height = 'auto'; }
+    if (homeSendBtn) { homeSendBtn.disabled = true; homeSendBtn.classList.remove('active'); }
+    if (chatSendBtn) { chatSendBtn.disabled = true; chatSendBtn.classList.remove('active'); }
+
     if (messagesArea) messagesArea.innerHTML = '';
     if (chatTitleText) chatTitleText.textContent = 'New Chat';
-    
     await db.setMemory('current_session', null);
     setGeneratingUI(false);
     renderHistory();
@@ -446,7 +422,6 @@ async function askOllama(aiEl) {
         const memory = history.slice(0, 3).map(s => s.title).join(', ');
         const memoryCtx = memory ? `\n[Past discussions: ${memory}]` : '';
         const linkedCtx = await getLinkedContext();
-
         const res = await fetch(OLLAMA_URL, {
             method: 'POST',
             body: JSON.stringify({
@@ -456,56 +431,42 @@ async function askOllama(aiEl) {
                 stream: true
             })
         });
-
         const reader = res.body.getReader();
         const decoder = new TextDecoder();
         aiEl.innerHTML = '';
-
         let tokenCount = 0;
         let partialMessageId = null;
-
         while (true) {
             const { done, value } = await reader.read();
             if (done) break;
             const chunk = decoder.decode(value, { stream: true });
-            
             const lines = chunk.split('\n').filter(l => l.trim());
             for (const line of lines) {
                 try {
                     const token = JSON.parse(line).message?.content || '';
                     full += token;
                     tokenCount++;
-                    
                     aiEl.innerHTML = simpleMarkdown(full);
                     scrollBottom();
-
-                    // Periodic intermediate save (every 3 tokens to be more responsive to interrupts)
-                    if (tokenCount % 3 === 0 || tokenCount === 1) {
+                    if (tokenCount % 10 === 0) {
                         if (!partialMessageId) {
                             const m = await db.addMessage(currentSessionId, 'assistant', full, activeModel);
                             partialMessageId = m.id;
-                            await db.updateMessage(partialMessageId, { interrupted: true });
                         } else {
-                            await db.updateMessage(partialMessageId, { content: full, interrupted: true });
+                            await db.updateMessage(partialMessageId, { content: full });
                         }
-                        await syncSessionToDisk(currentSessionId);
                     }
                 } catch {}
             }
         }
-        
-        // Final Finalization - remove interrupted flag
         if (partialMessageId) {
             await db.updateMessage(partialMessageId, { content: full, interrupted: false });
         } else {
-            // Save if message was extremely short (< 3 tokens)
             await db.addMessage(currentSessionId, 'assistant', full, activeModel);
         }
-        
         messages.push({ role: 'assistant', content: full });
         finalizeAIMessage(aiEl, full, activeModel);
         await syncSessionToDisk(currentSessionId);
-        
     } catch (e) {
         aiEl.innerHTML = `<span style="color:#f87171">⚠ Connection failed. Ensure Ollama is running.</span>`;
         console.error('Streaming error:', e);
@@ -523,14 +484,12 @@ async function appendUserMessage(text, isQueued = false) {
             <button class="msg-copy-btn" title="Copy Message">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
             </button>
-        </div>
-    `;
-    
+        </div>`;
     row.querySelector('.msg-delete-btn').onclick = async (e) => {
         e.stopPropagation();
         showModal({
             title: 'Delete Message?',
-            text: 'Are you sure you want to delete this message? This cannot be undone.',
+            text: 'Are you sure you want to delete this message?',
             confirmText: 'Delete',
             onConfirm: async () => {
                 const msgs = await db.getMessages(currentSessionId);
@@ -543,9 +502,7 @@ async function appendUserMessage(text, isQueued = false) {
             }
         });
     };
-    
     row.querySelector('.msg-copy-btn').onclick = (e) => copyToClipboard(text, e.currentTarget);
-    
     messagesArea?.appendChild(row);
     scrollBottom();
     if (currentSessionId && !isQueued) {
@@ -566,8 +523,7 @@ function appendAIMessage() {
             <button class="msg-copy-btn ai" title="Copy Message">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
             </button>
-        </div>
-    `;
+        </div>`;
     messagesArea?.appendChild(row);
     scrollBottom();
     return row.querySelector('.ai-text');
@@ -578,7 +534,6 @@ function finalizeAIMessage(el, text, model) {
     const row = el.closest('.message-row');
     const copyBtn = row.querySelector('.msg-copy-btn');
     if (copyBtn) copyBtn.onclick = (e) => copyToClipboard(text, e.currentTarget);
-
     const delBtn = document.createElement('button');
     delBtn.className = 'msg-delete-btn';
     delBtn.title = 'Delete message';
@@ -601,7 +556,6 @@ function finalizeAIMessage(el, text, model) {
         });
     };
     row.querySelector('.ai-content').appendChild(delBtn);
-
     const note = document.createElement('div');
     note.className = 'upgrade-note';
     note.innerHTML = `Mode: <strong>${model}</strong>`;
@@ -610,161 +564,60 @@ function finalizeAIMessage(el, text, model) {
 
 async function generateSessionTitle(id, text, ctx) {
     try {
-        // Premium Intelligence Injection for title generation
-        const systemPrompt = "You are a world-class AI assistant with PhD-level intelligence, specializing in clear, structured, and sophisticated communication. You reason deeply and provide accurate, helpful, and beautifully formatted responses. Use headers, tables, task lists, and blockquotes whenever they improve clarity. Your persona is professional yet accessible, much like Claude or GPT-4. Always prioritize detail and accuracy.";
-        
+        const systemPrompt = "Summarize in 3 words (Max 5 words):";
         const res = await fetch(OLLAMA_URL, {
             method: 'POST',
-            body: JSON.stringify({ 
-                model: OLLAMA_MODEL, 
-                system: systemPrompt + " Summarize in 3 words (Max 5 words): " + ctx, 
-                messages: [{ role:'user', content: text }], 
-                stream: false 
-            })
+            body: JSON.stringify({
+                 model: OLLAMA_MODEL,
+                 system: systemPrompt,
+                 messages: [{ role:'user', content: text }],
+                 stream: false
+             })
         });
         const data = await res.json();
         let title = (data.message?.content || text.slice(0, 20)).replace(/"/g,'');
-        // Final word limit enforcement
-        title = title.split(' ').slice(0, 7).join(' ') + (title.split(' ').length > 7 ? '...' : '');
+        title = title.split(' ').slice(0, 7).join(' ');
         await db.updateSession(id, { title });
         if (currentSessionId === id && chatTitleText) chatTitleText.textContent = title;
         renderHistory();
     } catch {}
 }
 
-// ─── History Sync & UI ───────────────────────────────────────────────────────
 async function syncSessionToDisk(sessionId) {
     try {
         const session = await db.getSession(sessionId);
         const msgs = await db.getMessages(sessionId);
         if (!session) return;
-
         await fetch('http://localhost:3001/api/save_session', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id: sessionId, data: { ...session, messages: msgs } })
         });
-    } catch (e) {
-        console.error('Disk sync failed:', e);
-    }
-}
-
-async function togglePin(sessionId, e) {
-    if (e) e.stopPropagation();
-    const session = await db.getSession(sessionId);
-    if (!session) return;
-    await db.updateSession(sessionId, { isPinned: !session.isPinned });
-    await syncSessionToDisk(sessionId);
-    renderHistory();
-}
-
-async function toggleFolderPin(folderId, e) {
-    if (e) e.stopPropagation();
-    const folders = await db.getMemory('folders') || [];
-    const folder = folders.find(f => f.id === folderId);
-    if (folder) {
-        folder.isPinned = !folder.isPinned;
-        await db.setMemory('folders', folders);
-        renderHistory();
-    }
-}
-
-async function createFolder() {
-    const name = prompt('Folder Name:');
-    if (!name) return;
-    const folders = await db.getMemory('folders') || [];
-    const id = `folder_${Date.now()}`;
-    folders.push({ id, name, isOpen: true });
-    await db.setMemory('folders', folders);
-    renderHistory();
-}
-
-async function deleteFolder(id, e) {
-    if (e) e.stopPropagation();
-    if (!confirm('Delete folder? Chats will remain.')) return;
-    const folders = await db.getMemory('folders') || [];
-    const updated = folders.filter(f => f.id !== id);
-    await db.setMemory('folders', updated);
-    
-    // Clear folderId from sessions in this folder
-    const sessions = await db.getAllSessions();
-    for (const s of sessions) {
-        if (s.folderId === id) await db.updateSession(s.id, { folderId: null });
-    }
-    renderHistory();
-}
-
-async function moveSessionToFolder(sessionId, folderId) {
-    await db.updateSession(sessionId, { folderId });
-    await syncSessionToDisk(sessionId);
-    renderHistory();
+    } catch (e) { console.error('Disk sync failed:', e); }
 }
 
 async function renderHistory() {
     if (!historyList) return;
     const sessions = await db.getAllSessions();
-    
-    // Sort: Pinned first, then by updatedAt
     sessions.sort((a, b) => {
         if (a.isPinned && !b.isPinned) return -1;
         if (!a.isPinned && b.isPinned) return 1;
         return (b.updatedAt || 0) - (a.updatedAt || 0);
     });
-
     historyList.innerHTML = '';
     sessions.forEach(s => {
         historyList.appendChild(createHistoryItem(s));
     });
-    
-    // Smoothly update max-height if expanded
     if (!historyList.classList.contains('collapsed')) {
         historyList.style.maxHeight = historyList.scrollHeight + "px";
     }
 }
 
-function renderFolderWithChats(folder, allSessions) {
-    const folderEl = createFolderUI(folder);
-    historyList.appendChild(folderEl);
-    
-    const folderSessions = allSessions.filter(s => s.folderId === folder.id);
-    // Sort pinned chats in folder to the top
-    folderSessions.sort((a, b) => (b.isPinned ? 1 : 0) - (a.isPinned ? 1 : 0));
-    folderSessions.forEach(s => {
-        const item = createHistoryItem(s, true);
-        historyList.appendChild(item);
-    });
-}
-
-function groupSessionsByDate(sessions) {
-    const today = new Date();
-    today.setHours(0,0,0,0);
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-
-    const groups = { today: [], yesterday: [], earlier: [] };
-    sessions.forEach(s => {
-        const d = new Date(s.updatedAt || s.createdAt || Date.now());
-        d.setHours(0,0,0,0);
-        if (d.getTime() === today.getTime()) groups.today.push(s);
-        else if (d.getTime() === yesterday.getTime()) groups.yesterday.push(s);
-        else groups.earlier.push(s);
-    });
-    return groups;
-}
-
-function appendHistoryHeader(text) {
-    const h = document.createElement('div');
-    h.className = 'history-header-divider';
-    h.innerText = text;
-    historyList.appendChild(h);
-}
-
-function createHistoryItem(session, isSub = false) {
+function createHistoryItem(session) {
     const div = document.createElement('div');
     div.className = `history-item ${session.id === currentSessionId ? 'active' : ''}`;
     div.dataset.id = session.id;
     div.onclick = () => { loadSession(session.id); closeSidebar(); };
-    
     div.innerHTML = `
         <div class="history-item-content">${escapeHtml(session.title)}</div>
         <div class="history-item-actions">
@@ -772,15 +625,12 @@ function createHistoryItem(session, isSub = false) {
             <div class="history-item-more">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
             </div>
-        </div>
-    `;
-
+        </div>`;
     const moreBtn = div.querySelector('.history-item-more');
     moreBtn.onclick = (e) => {
         e.stopPropagation();
         showContextMenu(session.id, moreBtn);
     };
-
     return div;
 }
 
@@ -790,21 +640,10 @@ const ctxMenu = document.getElementById('chat-context-menu');
 function showContextMenu(sessionId, anchor) {
     contextSessionId = sessionId;
     const rect = anchor.getBoundingClientRect();
-    
     ctxMenu.style.display = 'block';
     ctxMenu.style.left = (rect.left - 180) + 'px';
     ctxMenu.style.top = (rect.bottom + 5) + 'px';
     ctxMenu.classList.add('active');
-
-    // Update dynamic text
-    db.getSession(sessionId).then(s => {
-        if (s) {
-            document.getElementById('menu-pin').innerHTML = s.isPinned ? 
-                '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6a3 3 0 0 0-3-3 3 3 0 0 0-3 3v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24z"/></svg>Unpin chat' : 
-                '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6a3 3 0 0 0-3-3 3 3 0 0 0-3 3v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24z"/></svg>Pin chat';
-        }
-    });
-
     const closeHandler = () => { ctxMenu.classList.remove('active'); ctxMenu.style.display = 'none'; document.removeEventListener('click', closeHandler); };
     setTimeout(() => document.addEventListener('click', closeHandler), 10);
 }
@@ -820,94 +659,17 @@ document.getElementById('menu-delete')?.addEventListener('click', async (e) => {
         confirmText: 'Delete',
         onConfirm: async () => {
             await db.deleteSession(contextSessionId);
-            await fetch(`http://localhost:3001/api/delete_session/${contextSessionId}`, { method: 'DELETE' }).catch(() => {});
-            
-            // STAY in the history panel after deletion
             if (currentSessionId === contextSessionId) {
-                // If we deleted the active chat, reset the view but keep history open
                 currentSessionId = null;
                 messages = [];
                 if (messagesArea) messagesArea.innerHTML = '';
                 if (chatTitleText) chatTitleText.textContent = 'New Chat';
                 switchToHome();
             }
-            
             renderHistory();
         }
     });
 });
-
-document.getElementById('menu-pin')?.addEventListener('click', async (e) => {
-    e.stopPropagation();
-    ctxMenu.classList.remove('active');
-    ctxMenu.style.display = 'none';
-    if (!contextSessionId) return;
-    const s = await db.getSession(contextSessionId);
-    if (s) {
-        await db.updateSession(contextSessionId, { isPinned: !s.isPinned });
-        await syncSessionToDisk(contextSessionId);
-        renderHistory();
-    }
-});
-
-document.getElementById('menu-rename')?.addEventListener('click', async (e) => {
-    e.stopPropagation();
-    ctxMenu.classList.remove('active');
-    ctxMenu.style.display = 'none';
-    if (!contextSessionId) return;
-    const old = await db.getSession(contextSessionId);
-    showModal({
-        title: 'Rename Chat',
-        text: 'Enter a new title for this conversation:',
-        confirmText: 'Rename',
-        showInput: true,
-        inputValue: old?.title || '',
-        onConfirm: async (newTitle) => {
-            if (newTitle) {
-                await db.updateSession(contextSessionId, { title: newTitle });
-                await syncSessionToDisk(contextSessionId);
-                renderHistory();
-            }
-        }
-    });
-});
-
-function createFolderUI(folder) {
-    const div = document.createElement('div');
-    div.className = `history-folder-item ${folder.isPinned ? 'pinned' : ''}`;
-    
-    // Smart Icon Detection
-    let icon = '📂';
-    const name = folder.name.toLowerCase();
-    if (name.includes('tech') || name.includes('code')) icon = '💻';
-    else if (name.includes('work') || name.includes('comp')) icon = '💼';
-    else if (name.includes('small') || name.includes('mini')) icon = '🧊';
-    else if (name.includes('big') || name.includes('large')) icon = '🏔️';
-    else if (name.includes('brain') || name.includes('ai')) icon = '🧠';
-
-    div.innerHTML = `
-        <span class="folder-title">${icon} ${escapeHtml(folder.name)}</span>
-        <div class="folder-actions">
-            <button class="folder-action-pin" title="${folder.isPinned ? 'Unpin' : 'Pin'}">${folder.isPinned ? '📍' : '📌'}</button>
-            <button class="folder-action-del">×</button>
-        </div>
-    `;
-    div.querySelector('.folder-action-pin').onclick = (e) => toggleFolderPin(folder.id, e);
-    div.querySelector('.folder-action-del').onclick = (e) => deleteFolder(folder.id, e);
-    return div;
-}
-
-async function updateAIPersona() {
-    const sessions = await db.getAllSessions();
-    const recentSummaries = sessions.slice(0, 5).map(s => s.title).join(', ');
-    
-    let pattern = '';
-    if (sessions.length > 5) {
-        pattern = `\n[USER PATTERNS/PREFERENCES]: You've noticed the user recently discusses: ${recentSummaries}. Use this context to anticipate their needs and style.`;
-    }
-
-    CLAUDE_SYSTEM_PROMPT = MODEL_PROMPTS[activeModel] + pattern;
-}
 
 async function loadSession(id) {
     const s = await db.getSession(id);
@@ -917,78 +679,19 @@ async function loadSession(id) {
     switchToChat();
     if (messagesArea) {
         messagesArea.innerHTML = '';
-        // Efficiently render all messages
         const fragment = document.createDocumentFragment();
         messages.forEach(m => {
             const row = document.createElement('div');
+            row.className = m.role === 'user' ? 'message-row user' : 'message-row assistant';
             if (m.role === 'user') {
-                row.className = 'message-row user';
-                row.innerHTML = `
-                    <div class="user-bubble">
-                        <button class="msg-delete-btn" title="Delete message">🗑</button>
-                        <div class="user-text">${escapeHtml(m.content)}</div>
-                    </div>
-                `;
-                row.querySelector('.msg-delete-btn').onclick = async () => {
-                    showModal({
-                        title: 'Delete Message?',
-                        text: 'Remove this message from history?',
-                        confirmText: 'Delete',
-                        onConfirm: async () => {
-                            await db.deleteMessage(m.id);
-                            row.remove();
-                            await syncSessionToDisk(currentSessionId);
-                        }
-                    });
-                };
+                row.innerHTML = `<div class="user-bubble"><div class="user-text">${escapeHtml(m.content)}</div></div>`;
             } else {
-                row.className = 'message-row assistant';
                 row.innerHTML = `
                     <div class="ai-avatar neutral"></div>
                     <div class="ai-content">
-                        <button class="msg-delete-btn" title="Delete message">🗑</button>
                         <div class="ai-text">${simpleMarkdown(m.content)}</div>
-                        ${m.interrupted ? `
-                            <div class="interrupted-note" style="color:#ef4444; font-size:11px; margin-top:8px; display:flex; align-items:center; gap:6px;">
-                                <span style="background:#ef4444; width:5px; height:5px; border-radius:50%;"></span>
-                                Response was interrupted by user
-                                <button class="restart-msg-btn" style="background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.2); color:#ef4444; padding:2px 8px; border-radius:4px; font-size:10px; cursor:pointer; margin-left:8px; font-weight:600;">RESTART</button>
-                            </div>
-                        ` : ''}
                         <div class="upgrade-note">Mode: <strong>${m.model || 'Llama-3'}</strong></div>
-                        <button class="msg-copy-btn ai" title="Copy Message">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
-                        </button>
-                    </div>
-                `;
-                row.querySelector('.msg-delete-btn').onclick = async () => {
-                    showModal({
-                        title: 'Delete Message?',
-                        text: 'Remove this message from history?',
-                        confirmText: 'Delete',
-                        onConfirm: async () => {
-                            await db.deleteMessage(m.id);
-                            row.remove();
-                            await syncSessionToDisk(currentSessionId);
-                        }
-                    });
-                };
-
-                const restartBtn = row.querySelector('.restart-msg-btn');
-                if (restartBtn) {
-                    restartBtn.onclick = async () => {
-                        await db.deleteMessage(m.id);
-                        row.remove();
-                        // Remove from the local messages array too
-                        messages = messages.filter(prev => prev.id !== m.id);
-                        // Trigger generation using the remaining history
-                        const aiPlaceholder = appendAIMessage();
-                        askOllama(aiPlaceholder);
-                    };
-                }
-
-                const copyBtn = row.querySelector('.msg-copy-btn');
-                if (copyBtn) copyBtn.onclick = (e) => copyToClipboard(m.content, e.currentTarget);
+                    </div>`;
             }
             fragment.appendChild(row);
         });
@@ -997,7 +700,13 @@ async function loadSession(id) {
     if (chatTitleText) chatTitleText.textContent = s.title;
     scrollBottom();
     renderHistory();
-    await updateAIPersona();
+}
+
+async function updateAIPersona() {
+    const sessions = await db.getAllSessions();
+    const recentSummaries = sessions.slice(0, 5).map(s => s.title).join(', ');
+    let pattern = sessions.length > 5 ? `\n[USER PATTERNS]: Recently discusses: ${recentSummaries}.` : '';
+    CLAUDE_SYSTEM_PROMPT = MODEL_PROMPTS[activeModel] + pattern;
 }
 
 // ─── Initialization ──────────────────────────────────────────────────────────
@@ -1008,7 +717,12 @@ function bindTA(ta, btn) {
         btn.disabled = !ta.value.trim();
         btn.classList.toggle('active', !btn.disabled);
     });
-    ta?.addEventListener('keydown', (e) => { if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if(!btn.disabled) btn.click(); } });
+    ta?.addEventListener('keydown', (e) => { 
+        if(e.key === 'Enter' && !e.shiftKey) { 
+            e.preventDefault(); 
+            if(!btn.disabled) btn.click(); 
+        } 
+    });
 }
 
 bindTA(homeTA, homeSendBtn);
@@ -1016,19 +730,14 @@ bindTA(chatTA, chatSendBtn);
 
 homeSendBtn?.addEventListener('click', () => {
     const val = homeTA.value.trim();
-    if (val) { homeTA.value = ''; switchToChat(val); sendMessage(val); }
+    if (val) { homeTA.value = ''; switchToChat(); sendMessage(val); }
 });
 
 chatSendBtn?.addEventListener('click', () => {
     const val = chatTA.value.trim();
-    if (val) { 
-        chatTA.value = ''; 
-        chatTA.style.height = 'auto';
-        sendMessage(val); 
-    }
+    if (val) { chatTA.value = ''; chatTA.style.height = 'auto'; sendMessage(val); }
 });
 
-// Dropdown positioning
 const openModelDrop = (btn) => {
     const r = btn.getBoundingClientRect();
     if (modelDropdown) {
@@ -1037,6 +746,7 @@ const openModelDrop = (btn) => {
         modelDropdown.classList.toggle('open');
     }
 };
+
 homeModelBtn?.addEventListener('click', (e) => { e.stopPropagation(); openModelDrop(homeModelBtn); });
 chatModelBtn?.addEventListener('click', (e) => { e.stopPropagation(); openModelDrop(chatModelBtn); });
 modelOptions.forEach(opt => opt.addEventListener('click', () => { setActiveModel(opt.dataset.model); modelDropdown?.classList.remove('open'); }));
@@ -1044,98 +754,9 @@ modelOptions.forEach(opt => opt.addEventListener('click', () => { setActiveModel
 newChatBtn?.addEventListener('click', startNewChat);
 getEl('back-to-home-btn')?.addEventListener('click', startNewChat);
 
-document.addEventListener('keydown', (e) => {
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
-        e.preventDefault();
-        startNewChat();
-    }
-});
-
-getEl('new-folder-btn')?.addEventListener('click', createFolder);
-
-// Account Linking Logic (Deep Integration)
-async function fetchGitHubProfile(token) {
-    try {
-        const h = { 'Authorization': `token ${token}` };
-        const [uRes, rRes] = await Promise.all([
-            fetch('https://api.github.com/user', { headers: h }),
-            fetch('https://api.github.com/user/repos?sort=updated&per_page=5', { headers: h })
-        ]);
-        if (!uRes.ok) throw new Error('Invalid Token');
-        const user = await uRes.json();
-        const repos = await rRes.json();
-        return {
-            login: user.login,
-            name: user.name,
-            bio: user.bio,
-            public_repos: user.public_repos,
-            repos: repos.map(r => ({ name: r.name, lang: r.language, url: r.html_url }))
-        };
-    } catch (e) { console.error('GitHub Sync Error:', e); return null; }
-}
-
-async function updateLinkUI() {
-    const linked = await db.getMemory('linked_accounts') || {};
-    
-    // GitHub
-    const ghMeta = document.getElementById('github-metadata');
-    const ghBtn  = document.getElementById('link-github-btn');
-    if (linked.github_data && ghMeta && ghBtn) {
-        const d = linked.github_data;
-        ghMeta.style.display = 'block';
-        ghMeta.innerHTML = `Connected as <strong>@${d.login}</strong> • ${d.public_repos} repos`;
-        ghBtn.innerText = 'Connected';
-        ghBtn.classList.add('connected');
-    }
-
-    // LinkedIn
-    const liMeta = document.getElementById('linkedin-metadata');
-    const liBtn  = document.getElementById('link-linkedin-btn');
-    if (linked.linkedin && liMeta && liBtn) {
-        liMeta.style.display = 'block';
-        liMeta.innerHTML = `Linked: ${linked.linkedin.slice(0, 30)}...`;
-        liBtn.innerText = 'Connected';
-        liBtn.classList.add('connected');
-    }
-}
-
-document.getElementById('link-github-btn')?.addEventListener('click', async () => {
-    const token = prompt('Enter your GitHub Personal Access Token (classic, with repo scope):');
-    if (token) {
-        const btn = document.getElementById('link-github-btn');
-        const originalText = btn.innerText;
-        btn.innerText = 'Syncing...';
-        const data = await fetchGitHubProfile(token);
-        if (data) {
-            const linked = await db.getMemory('linked_accounts') || {};
-            linked.github_token = token;
-            linked.github_data = data;
-            await db.setMemory('linked_accounts', linked);
-            updateLinkUI();
-            alert(`Success! Successfully connected to @${data.login}.`);
-        } else {
-            alert('Error: Failed to fetch profile. Check your token.');
-            btn.innerText = originalText;
-        }
-    }
-});
-
-document.getElementById('link-linkedin-btn')?.addEventListener('click', async () => {
-    const url = prompt('Enter your LinkedIn Profile URL:');
-    if (url) {
-        const linked = await db.getMemory('linked_accounts') || {};
-        linked.linkedin = url;
-        await db.setMemory('linked_accounts', linked);
-        updateLinkUI();
-    }
-});
-
-// ─── Rail Navigation Logic ────────────────────────────────────────────────
+const historyPanel = document.getElementById('history-panel');
 const railHome = document.getElementById('nav-home');
 const railChat = document.getElementById('nav-chat');
-const railNew  = document.getElementById('nav-new-chat-rail');
-const historyPanel = document.getElementById('history-panel');
-const panelBackBtn = document.getElementById('panel-back-btn');
 
 function setRailActive(el) {
     document.querySelectorAll('.rail-item').forEach(item => item.classList.remove('active'));
@@ -1146,69 +767,18 @@ railHome?.addEventListener('click', () => {
     setRailActive(railHome);
     historyPanel?.classList.remove('active');
     mainLayout?.classList.remove('history-open');
-    document.body.classList.remove('history-panel-open');
-    chatView?.classList.remove('active');
-    homeView?.classList.add('active');
+    switchToHome();
 });
 
 railChat?.addEventListener('click', () => {
     setRailActive(railChat);
     historyPanel?.classList.toggle('active');
     mainLayout?.classList.toggle('history-open');
-    document.body.classList.toggle('history-panel-open');
-    if (historyPanel?.classList.contains('active')) {
-        renderHistory();
-    }
+    if (historyPanel?.classList.contains('active')) renderHistory();
 });
 
-railNew?.addEventListener('click', () => {
-    startNewChat();
-    historyPanel?.classList.remove('active');
-    mainLayout?.classList.remove('history-open');
-    document.body.classList.remove('history-panel-open');
-    setRailActive(railHome); // Return to home view state for new chat? Or keep chat active.
-});
-
-panelBackBtn?.addEventListener('click', () => {
-    historyPanel?.classList.remove('active');
-    mainLayout?.classList.remove('history-open');
-    document.body.classList.remove('history-panel-open');
-    setRailActive(railHome);
-});
-
-// RECENTS COLLAPSIBLE LOGIC
-const recentsHeader = document.querySelector('.recents-header');
-recentsHeader?.addEventListener('click', () => {
-    const isCollapsed = recentsHeader.classList.toggle('collapsed');
-    if (historyList) {
-        historyList.classList.toggle('collapsed', isCollapsed);
-        if (!isCollapsed) {
-            historyList.style.maxHeight = historyList.scrollHeight + "px";
-        } else {
-            historyList.style.maxHeight = "0px";
-        }
-    }
-});
-
-document.addEventListener('click', (e) => {
-    if (historyPanel?.classList.contains('active')) {
-        // Don't close if clicking inside history panel, rail toggle, or active modals
-        const isClickInsideModal = e.target.closest('.modal-overlay') || e.target.closest('.modal-content');
-        if (!historyPanel.contains(e.target) && !railChat?.contains(e.target) && !isClickInsideModal) {
-            historyPanel.classList.remove('active');
-            mainLayout?.classList.remove('history-open');
-            document.body.classList.remove('history-panel-open');
-            setRailActive(railHome);
-        }
-    }
-});
-
-// Removed hardcoded main layout style adjustment so CSS transitions work properly
-
-// RUN 
 (async () => {
     try {
-        await updateLinkUI();
         await updateAIPersona();
         const last = await db.getMemory('current_session');
         if (last) {
