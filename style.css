@@ -1,11 +1,11 @@
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
 :root {
-    --bg: #0c0c0e;
+    --bg: #131314;
     --sidebar-bg: #111115;
-    --input-bg: #1c1c20;
+    --input-bg: #1d1d20;
     --msg-user-bg: #1e1e24;
-    --border: rgba(255,255,255,0.07);
+    --border: rgba(255,255,255,0.08);
     --text: #e2e2e8;
     --muted: #6b6b78;
     --blue: #3b82f6;
