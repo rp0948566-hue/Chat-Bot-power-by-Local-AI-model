@@ -119,7 +119,7 @@ function appendAIMessage() {
     const row = document.createElement('div');
     row.className = 'message-row assistant';
     row.innerHTML = `
-        <div class="ai-avatar">🌐</div>
+        <div class="ai-avatar"></div>
         <div class="ai-content">
             <div class="ai-text" id="ai-text-${Date.now()}">
                 <div class="typing-dots"><span></span><span></span><span></span></div>

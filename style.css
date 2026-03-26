@@ -140,13 +140,19 @@ textarea::placeholder { color: var(--muted); }
 }
 
 .ai-avatar {
-    width: 32px; height: 32px;
+    width: 30px; height: 30px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #1d4ed8, #3b82f6);
+    background: #1e88e5; /* Exact Blue from Kimi */
     display: flex; align-items: center; justify-content: center;
+    gap: 3px;
     flex-shrink: 0;
     margin-top: 2px;
-    font-size: 16px;
+}
+.ai-avatar::before, .ai-avatar::after {
+    content: '';
+    width: 3.5px; height: 7px;
+    background: #fff;
+    border-radius: 4px;
 }
 
 .ai-content { flex: 1; min-width: 0; }
