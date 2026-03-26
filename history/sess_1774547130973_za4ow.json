@@ -1,0 +1,62 @@
+{
+  "id": "sess_1774547130973_za4ow",
+  "title": "Hello! It's nice to meet you. Is",
+  "model": "instant",
+  "createdAt": "2026-03-26T17:45:30.973Z",
+  "updatedAt": "2026-03-26T17:45:54.065Z",
+  "isPinned": false,
+  "folderId": null,
+  "messages": [
+    {
+      "sessionId": "sess_1774547130973_za4ow",
+      "role": "user",
+      "content": "hello",
+      "timestamp": "2026-03-26T17:45:30.986Z",
+      "model": "instant",
+      "id": 27258
+    },
+    {
+      "sessionId": "sess_1774547130973_za4ow",
+      "role": "assistant",
+      "content": "Hello! It's nice to meet you. Is there something I can help you with, or would you like to chat?",
+      "timestamp": "2026-03-26T17:45:30.986Z",
+      "model": "instant",
+      "interrupted": false,
+      "id": 27259
+    },
+    {
+      "sessionId": "sess_1774547130973_za4ow",
+      "role": "user",
+      "content": "how are you cutey",
+      "timestamp": "2026-03-26T17:46:26.339Z",
+      "model": "instant",
+      "id": 27260
+    },
+    {
+      "sessionId": "sess_1774547130973_za4ow",
+      "role": "assistant",
+      "content": "Aw, thank you for the sweet sentiment! I'm just an AI, so I don't have feelings in the way humans do, but I appreciate the affectionate vibe! I'm functioning well and ready to help with any questions or topics you'd like to discuss. How about you? How's your day going?",
+      "timestamp": "2026-03-26T17:46:26.339Z",
+      "model": "instant",
+      "interrupted": false,
+      "id": 27261
+    },
+    {
+      "sessionId": "sess_1774547130973_za4ow",
+      "role": "user",
+      "content": "ok tell me yes or no cna you able to accse my laptop file",
+      "timestamp": "2026-03-26T17:47:17.051Z",
+      "model": "instant",
+      "id": 27262
+    },
+    {
+      "sessionId": "sess_1774547130973_za4ow",
+      "role": "assistant",
+      "content": "No, I am not able to access your laptop files. As a text-based AI assistant, I don't have the capability to access physical devices or private data. My capabilities are limited to processing and generating text based on what you input.",
+      "timestamp": "2026-03-26T17:47:17.051Z",
+      "model": "instant",
+      "interrupted": false,
+      "id": 27263
+    }
+  ]
+}

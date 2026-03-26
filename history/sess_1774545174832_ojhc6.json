@@ -1,0 +1,28 @@
+{
+  "id": "sess_1774545174832_ojhc6",
+  "title": "hi",
+  "model": "instant",
+  "createdAt": "2026-03-26T17:12:54.832Z",
+  "updatedAt": "2026-03-26T17:12:54.832Z",
+  "isPinned": false,
+  "folderId": null,
+  "messages": [
+    {
+      "sessionId": "sess_1774545174832_ojhc6",
+      "role": "user",
+      "content": "hi",
+      "timestamp": "2026-03-26T17:12:54.838Z",
+      "model": "instant",
+      "id": 27255
+    },
+    {
+      "sessionId": "sess_1774545174832_ojhc6",
+      "role": "assistant",
+      "content": "Hi! It's nice to meet you. Is there something I can help you with, or would you like to chat?",
+      "timestamp": "2026-03-26T17:13:13.258Z",
+      "model": "instant",
+      "interrupted": false,
+      "id": 27257
+    }
+  ]
+}

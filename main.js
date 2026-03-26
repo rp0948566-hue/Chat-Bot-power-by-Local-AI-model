@@ -176,9 +176,13 @@ function simpleMarkdown(text) {
         .replace(/^---$/gm, '<hr>')
         .replace(/^\[x\] (.*$)/gim, '<li class="task-list-item"><input type="checkbox" checked disabled> <span>$1</span></li>')
         .replace(/^\[ \] (.*$)/gim, '<li class="task-list-item"><input type="checkbox" disabled> <span>$1</span></li>')
-        .replace(/^\d+\. (.*$)/gim, '<li>$1</li>')
-        .replace(/^\* (.*$)/gim, '<li>$1</li>')
-        .replace(/^> (.*$)/gim, '<blockquote>$1</blockquote>');
+        .replace(/^(Step \d+:.*$)/gim, '<h2>$1</h2>')
+        .replace(/^(IX|IV|V?I{0,3})\.\s+(.*$)/gim, '<li class="roman-list-item"><span>$1.</span> $2</li>')
+        .replace(/^\d+\.\s+(.*$)/gim, '<li>$1</li>')
+        .replace(/^\*\s+(.*$)/gim, '<li>$1</li>')
+        .replace(/^>\s+(.*$)/gim, '<blockquote>$1</blockquote>');
+
+    // Table support
     if (html.includes('|')) {
         const lines = html.split('\n');
         let inTable = false;
@@ -203,10 +207,15 @@ function simpleMarkdown(text) {
         if (inTable) { tableHtml += '</tbody></table>'; newLines.push(tableHtml); }
         html = newLines.join('\n');
     }
+
+    // Paragraph and spacing wrap
     html = html.split('\n\n').map(p => {
-        if (p.trim().startsWith('<')) return p;
+        const trimmed = p.trim();
+        if (!trimmed) return '';
+        if (trimmed.startsWith('<') && !trimmed.startsWith('<u>') && !trimmed.startsWith('<strong>') && !trimmed.startsWith('<em>')) return p;
         return `<p>${p.replace(/\n/g, '<br>')}</p>`;
     }).join('');
+
     return html;
 }
 
