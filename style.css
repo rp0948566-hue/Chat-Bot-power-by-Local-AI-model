@@ -112,6 +112,143 @@ header { height: var(--header-h); display: flex; align-items: center; justify-co
 .header-right { justify-content: flex-end; }
 .sidebar-toggle { background: none; border: none; cursor: pointer; color: var(--muted); padding: 8px; border-radius: 8px; display: flex; align-items: center; justify-content: center; transition: var(--transition); }
 .sidebar-toggle:hover { color: var(--text); background: rgba(255,255,255,0.06); }
+
+/* ── SIDEBAR ACTIONS & ORGANIZATION ──────── */
+.sidebar-action-row {
+    display: flex;
+    gap: 10px;
+    padding: 0 16px;
+    margin-bottom: 24px;
+}
+
+.new-chat-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    background: #2a2a30;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    padding: 12px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    cursor: pointer;
+    transition: var(--transition);
+}
+.new-chat-btn:hover { background: #32323a; border-color: rgba(255,255,255,0.15); transform: translateY(-1px); }
+
+.new-folder-btn {
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #2a2a30;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    color: var(--muted);
+    cursor: pointer;
+    transition: var(--transition);
+}
+.new-folder-btn:hover { color: var(--text); background: #32323a; transform: translateY(-1px); }
+
+.sidebar-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 0 8px;
+    margin-bottom: 20px;
+}
+
+.nav-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 14.5px;
+    font-weight: 500;
+    transition: var(--transition);
+}
+.nav-item:hover { background: rgba(255,255,255,0.05); color: var(--text); }
+.nav-item svg { opacity: 0.7; }
+.nav-item:hover svg { opacity: 1; }
+
+.section-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #444;
+    padding: 16px 20px 8px;
+    border-top: 1px solid rgba(255,255,255,0.03);
+    margin-top: 8px;
+}
+
+.history-folder-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 16px;
+    cursor: pointer;
+    border-radius: 8px;
+    margin: 2px 8px;
+    transition: var(--transition);
+}
+.history-folder-item:hover { background: rgba(255,255,255,0.04); }
+.folder-title { font-size: 14px; font-weight: 600; color: #aaa; }
+.folder-action-del { background: none; border: none; color: #444; font-size: 18px; cursor: pointer; transition: .2s; }
+.history-folder-item:hover .folder-action-del { color: #888; }
+.folder-action-del:hover { color: #ef4444 !important; }
+
+.history-item {
+    position: relative;
+    padding: 10px 16px;
+    margin: 2px 8px;
+    border-radius: 10px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    transition: var(--transition);
+}
+.history-item:hover { background: rgba(255,255,255,0.06); }
+.history-item.active { background: rgba(255,255,255,0.1); }
+.history-item.sub-item { margin-left: 28px; border-left: 1px solid #222; border-radius: 0 10px 10px 0; }
+
+.history-item-title {
+    font-size: 14px;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 180px;
+}
+
+.hist-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 4px;
+    opacity: 0;
+    transition: var(--transition);
+}
+.history-item:hover .hist-actions { opacity: 1; }
+
+.hist-action-btn {
+    background: none;
+    border: none;
+    padding: 2px;
+    cursor: pointer;
+    font-size: 14px;
+    filter: grayscale(1);
+    opacity: 0.6;
+    transition: .2s;
+}
+.hist-action-btn:hover { filter: grayscale(0); opacity: 1; transform: scale(1.1); }
 .upgrade-pill { display: inline-flex; align-items: center; gap: 7px; background: #1c2e4e; border: 1px solid rgba(59,130,246,0.35); padding: 7px 18px; border-radius: 100px; font-size: 13.5px; font-weight: 600; color: #93c5fd; cursor: pointer; box-shadow: 0 0 20px rgba(59,130,246,0.2); transition: var(--transition); }
 .upgrade-pill:hover { background: #1e3560; box-shadow: 0 0 28px rgba(59,130,246,0.35); }
 .music-note { font-size: 15px; }

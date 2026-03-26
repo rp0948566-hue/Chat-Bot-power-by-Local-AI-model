@@ -71,12 +71,16 @@ class ChatDB {
     }
 
     // ── Sessions ──────────────────────────────────────────────────────────
-
+    
     async createSession(title = 'New Chat', model = 'instant') {
         await this._ready;
         const id  = `sess_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
         const now = new Date().toISOString();
-        const session = { id, title, model, createdAt: now, updatedAt: now };
+        const session = { 
+            id, title, model, 
+            createdAt: now, updatedAt: now,
+            isPinned: false, folderId: null 
+        };
         await this._req(
             this._db.transaction(STORES.sessions, 'readwrite')
                     .objectStore(STORES.sessions).put(session)

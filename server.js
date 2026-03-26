@@ -38,6 +38,55 @@ const runPS = (script) => {
     });
 };
 
+const HISTORY_DIR = path.join(__dirname, 'history');
+
+// Ensure history directory exists
+(async () => {
+    try {
+        await fs.mkdir(HISTORY_DIR, { recursive: true });
+        console.log('History directory ready:', HISTORY_DIR);
+    } catch (err) {
+        console.error('Failed to create history directory:', err);
+    }
+})();
+
+app.post('/api/save_session', async (req, res) => {
+    const { id, data } = req.body;
+    try {
+        const filePath = path.join(HISTORY_DIR, `${id}.json`);
+        await fs.writeFile(filePath, JSON.stringify(data, null, 2), 'utf8');
+        res.json({ success: true, output: `Session ${id} saved to file.` });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+app.get('/api/load_all_sessions', async (req, res) => {
+    try {
+        const files = await fs.readdir(HISTORY_DIR);
+        const sessions = await Promise.all(
+            files.filter(f => f.endsWith('.json')).map(async f => {
+                const content = await fs.readFile(path.join(HISTORY_DIR, f), 'utf8');
+                return JSON.parse(content);
+            })
+        );
+        res.json({ success: true, output: sessions });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+app.delete('/api/delete_session/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        const filePath = path.join(HISTORY_DIR, `${id}.json`);
+        await fs.unlink(filePath);
+        res.json({ success: true, output: `Session ${id} deleted.` });
+    } catch (err) {
+        res.json({ success: false, error: err.message });
+    }
+});
+
 app.post('/api/action', async (req, res) => {
     const { type, params } = req.body;
     console.log(`[ACTION] ${type}`, params);

@@ -310,6 +310,9 @@ async function sendMessage(userText, isQueued = false) {
         }
     }
 
+    await syncSessionToDisk(currentSessionId);
+    await updateAIPersona();
+
     if (messageQueue.length > 0) {
         const nextMsg = messageQueue.shift();
         sendMessage(nextMsg, true);
@@ -430,7 +433,7 @@ async function askOllama(aiEl) {
     }
 }
 
-function appendUserMessage(text, isQueued = false) {
+async function appendUserMessage(text, isQueued = false) {
     const row = document.createElement('div');
     row.className = 'message-row user' + (isQueued ? ' queued' : '');
     row.innerHTML = `
@@ -447,7 +450,10 @@ function appendUserMessage(text, isQueued = false) {
     
     messagesArea?.appendChild(row);
     scrollBottom();
-    if (currentSessionId && !isQueued) db.addMessage(currentSessionId, 'user', text, activeModel);
+    if (currentSessionId && !isQueued) {
+        await db.addMessage(currentSessionId, 'user', text, activeModel);
+        await syncSessionToDisk(currentSessionId);
+    }
 }
 
 function appendAIMessage() {
@@ -505,18 +511,170 @@ async function generateSessionTitle(id, text, ctx) {
     } catch {}
 }
 
-async function renderHistory() {
+// ─── History Sync & UI ───────────────────────────────────────────────────────
+async function syncSessionToDisk(sessionId) {
+    try {
+        const session = await db.getSession(sessionId);
+        const msgs = await db.getMessages(sessionId);
+        if (!session) return;
+
+        await fetch('http://localhost:3001/api/save_session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: sessionId, data: { ...session, messages: msgs } })
+        });
+    } catch (e) {
+        console.error('Disk sync failed:', e);
+    }
+}
+
+async function togglePin(sessionId, e) {
+    if (e) e.stopPropagation();
+    const session = await db.getSession(sessionId);
+    if (!session) return;
+    await db.updateSession(sessionId, { isPinned: !session.isPinned });
+    await syncSessionToDisk(sessionId);
+    renderHistory();
+}
+
+async function createFolder() {
+    const name = prompt('Folder Name:');
+    if (!name) return;
+    const folders = await db.getMemory('folders') || [];
+    const id = `folder_${Date.now()}`;
+    folders.push({ id, name, isOpen: true });
+    await db.setMemory('folders', folders);
+    renderHistory();
+}
+
+async function deleteFolder(id, e) {
+    if (e) e.stopPropagation();
+    if (!confirm('Delete folder? Chats will remain.')) return;
+    const folders = await db.getMemory('folders') || [];
+    const updated = folders.filter(f => f.id !== id);
+    await db.setMemory('folders', updated);
+    
+    // Clear folderId from sessions in this folder
     const sessions = await db.getAllSessions();
-    if (historyList) {
-        historyList.innerHTML = '';
-        sessions.forEach(s => {
-            const el = document.createElement('div');
-            el.className = 'history-item';
-            el.innerHTML = `<span class="history-item-title">${escapeHtml(s.title)}</span>`;
-            el.onclick = () => { loadSession(s.id); closeSidebar(); };
-            historyList.appendChild(el);
+    for (const s of sessions) {
+        if (s.folderId === id) await db.updateSession(s.id, { folderId: null });
+    }
+    renderHistory();
+}
+
+async function moveSessionToFolder(sessionId, folderId) {
+    await db.updateSession(sessionId, { folderId });
+    await syncSessionToDisk(sessionId);
+    renderHistory();
+}
+
+async function renderHistory() {
+    if (!historyList) return;
+    const sessions = await db.getAllSessions();
+    const folders  = await db.getMemory('folders') || [];
+    
+    historyList.innerHTML = '';
+
+    // 1. Pinned Section
+    const pinned = sessions.filter(s => s.isPinned);
+    if (pinned.length > 0) {
+        appendHistoryHeader('Pinned');
+        pinned.forEach(s => historyList.appendChild(createHistoryItem(s)));
+    }
+
+    // 2. Folders
+    if (folders.length > 0) {
+        appendHistoryHeader('Folders');
+        folders.forEach(f => {
+            const folderEl = createFolderUI(f);
+            historyList.appendChild(folderEl);
+            
+            const folderSessions = sessions.filter(s => s.folderId === f.id);
+            folderSessions.forEach(s => {
+                const item = createHistoryItem(s, true);
+                historyList.appendChild(item);
+            });
         });
     }
+
+    // 3. Recent (Unpinned, No folder)
+    const recent = sessions.filter(s => !s.isPinned && !s.folderId);
+    if (recent.length > 0) {
+        appendHistoryHeader('Recent');
+        recent.forEach(s => historyList.appendChild(createHistoryItem(s)));
+    }
+}
+
+function appendHistoryHeader(text) {
+    const h = document.createElement('div');
+    h.className = 'history-header-divider';
+    h.innerText = text;
+    historyList.appendChild(h);
+}
+
+function createHistoryItem(session, isSub = false) {
+    const div = document.createElement('div');
+    div.className = `history-item ${session.id === currentSessionId ? 'active' : ''} ${isSub ? 'sub-item' : ''}`;
+    div.onclick = () => { loadSession(session.id); closeSidebar(); };
+    
+    div.innerHTML = `
+        <div class="hist-main">
+            <span class="history-item-title">${escapeHtml(session.title)}</span>
+        </div>
+        <div class="hist-actions">
+            <button class="hist-action-btn pin-btn" title="${session.isPinned ? 'Unpin' : 'Pin'}">
+                ${session.isPinned ? '📍' : '📌'}
+            </button>
+            <button class="hist-action-btn folder-btn" title="Move to folder">📁</button>
+            <button class="hist-action-btn delete-btn" title="Delete">🗑</button>
+        </div>
+    `;
+
+    div.querySelector('.pin-btn').onclick = (e) => togglePin(session.id, e);
+    div.querySelector('.delete-btn').onclick = async (e) => {
+        e.stopPropagation();
+        if (confirm('Delete this chat?')) {
+            await db.deleteSession(session.id);
+            await fetch(`http://localhost:3001/api/delete_session/${session.id}`, { method: 'DELETE' }).catch(() => {});
+            if (currentSessionId === session.id) startNewChat();
+            else renderHistory();
+        }
+    };
+    div.querySelector('.folder-btn').onclick = async (e) => {
+        e.stopPropagation();
+        const folders = await db.getMemory('folders') || [];
+        if (folders.length === 0) return alert('Create a folder first!');
+        const folderList = folders.map((f, i) => `${i+1}. ${f.name}`).join('\n');
+        const choice = prompt(`Move to folder:\n0. None\n${folderList}`);
+        if (choice === null) return;
+        const idx = parseInt(choice) - 1;
+        await moveSessionToFolder(session.id, idx === -1 ? null : folders[idx].id);
+    };
+
+    return div;
+}
+
+function createFolderUI(folder) {
+    const div = document.createElement('div');
+    div.className = 'history-folder-item';
+    div.innerHTML = `
+        <span class="folder-title">📂 ${escapeHtml(folder.name)}</span>
+        <button class="folder-action-del">×</button>
+    `;
+    div.querySelector('.folder-action-del').onclick = (e) => deleteFolder(folder.id, e);
+    return div;
+}
+
+async function updateAIPersona() {
+    const sessions = await db.getAllSessions();
+    const recentSummaries = sessions.slice(0, 5).map(s => s.title).join(', ');
+    
+    let pattern = '';
+    if (sessions.length > 5) {
+        pattern = `\n[USER PATTERNS/PREFERENCES]: You've noticed the user recently discusses: ${recentSummaries}. Use this context to anticipate their needs and style.`;
+    }
+
+    CLAUDE_SYSTEM_PROMPT = MODEL_PROMPTS[activeModel] + pattern;
 }
 
 async function loadSession(id) {
@@ -527,10 +685,27 @@ async function loadSession(id) {
     switchToChat();
     if (messagesArea) {
         messagesArea.innerHTML = '';
-        messages.forEach(m => m.role === 'user' ? appendUserMessage(m.content) : finalizeAIMessage(appendAIMessage(), m.content, m.model));
+        // Efficiently render all messages
+        const fragment = document.createDocumentFragment();
+        messages.forEach(m => {
+            if (m.role === 'user') {
+                const row = document.createElement('div');
+                row.className = 'message-row user';
+                row.innerHTML = `<div class="user-bubble"><div class="user-text">${escapeHtml(m.content)}</div></div>`;
+                fragment.appendChild(row);
+            } else {
+                const row = document.createElement('div');
+                row.className = 'message-row assistant';
+                row.innerHTML = `<div class="ai-avatar neutral"></div><div class="ai-content"><div class="ai-text">${simpleMarkdown(m.content)}</div><div class="upgrade-note">Mode: <strong>${m.model}</strong></div></div>`;
+                fragment.appendChild(row);
+            }
+        });
+        messagesArea.appendChild(fragment);
     }
     if (chatTitleText) chatTitleText.textContent = s.title;
     scrollBottom();
+    renderHistory();
+    await updateAIPersona();
 }
 
 // ─── Initialization ──────────────────────────────────────────────────────────
@@ -583,6 +758,8 @@ document.addEventListener('keydown', (e) => {
         startNewChat();
     }
 });
+
+getEl('new-folder-btn')?.addEventListener('click', createFolder);
 
 // Account Linking Logic (Deep Integration)
 async function fetchGitHubProfile(token) {
@@ -665,6 +842,7 @@ document.getElementById('link-linkedin-btn')?.addEventListener('click', async ()
 (async () => {
     try {
         await updateLinkUI();
+        await updateAIPersona();
         const last = await db.getMemory('current_session');
         if (last) {
             await loadSession(last);
