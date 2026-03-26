@@ -1,0 +1,26 @@
+{
+  "id": "sess_1774517551390_474p8",
+  "title": "hello",
+  "model": "instant",
+  "createdAt": "2026-03-26T09:32:31.390Z",
+  "updatedAt": "2026-03-26T11:42:37.049Z",
+  "isPinned": false,
+  "messages": [
+    {
+      "sessionId": "sess_1774517551390_474p8",
+      "role": "user",
+      "content": "hello",
+      "model": "instant",
+      "timestamp": "2026-03-26T09:32:31.399Z",
+      "id": 27213
+    },
+    {
+      "sessionId": "sess_1774517551390_474p8",
+      "role": "user",
+      "content": "hello",
+      "model": "instant",
+      "timestamp": "2026-03-26T09:32:59.222Z",
+      "id": 27214
+    }
+  ]
+}

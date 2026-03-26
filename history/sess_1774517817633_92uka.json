@@ -1,0 +1,50 @@
+{
+  "id": "sess_1774517817633_92uka",
+  "title": "I'm just a language model, I don't...",
+  "model": "thinking",
+  "createdAt": "2026-03-26T09:36:57.633Z",
+  "updatedAt": "2026-03-26T11:42:30.616Z",
+  "isPinned": false,
+  "messages": [
+    {
+      "sessionId": "sess_1774517817633_92uka",
+      "role": "user",
+      "content": "how are you",
+      "model": "instant",
+      "timestamp": "2026-03-26T09:36:57.647Z",
+      "id": 27215
+    },
+    {
+      "sessionId": "sess_1774517817633_92uka",
+      "role": "assistant",
+      "content": "I'm just a language model, I don't have feelings or emotions like humans do. However, I am functioning properly and ready to assist with any questions or tasks you may have. How can I help you today?",
+      "model": "instant",
+      "timestamp": "2026-03-26T09:37:44.175Z",
+      "id": 27216
+    },
+    {
+      "sessionId": "sess_1774517817633_92uka",
+      "role": "user",
+      "content": "how are you",
+      "model": "instant",
+      "timestamp": "2026-03-26T09:44:39.910Z",
+      "id": 27217
+    },
+    {
+      "sessionId": "sess_1774517817633_92uka",
+      "role": "user",
+      "content": "how are you",
+      "model": "thinking",
+      "timestamp": "2026-03-26T09:46:42.807Z",
+      "id": 27218
+    },
+    {
+      "sessionId": "sess_1774517817633_92uka",
+      "role": "user",
+      "content": "how are you",
+      "model": "thinking",
+      "timestamp": "2026-03-26T09:46:42.807Z",
+      "id": 27219
+    }
+  ]
+}

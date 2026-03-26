@@ -1,11 +1,15 @@
-const express = require('express');
-const cors = require('cors');
-const { exec, spawn } = require('child_process');
-const fs = require('fs').promises;
-const path = require('path');
-const open = require('open');
-const { glob } = require('glob');
-const screenshot = require('screenshot-desktop');
+import express from 'express';
+import cors from 'cors';
+import { exec, spawn } from 'child_process';
+import { promises as fs } from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import open from 'open';
+import { glob } from 'glob';
+import screenshot from 'screenshot-desktop';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const port = 3001;
@@ -125,12 +129,10 @@ app.post('/api/action', async (req, res) => {
                 return res.json({ success: true, output: img.toString('base64') });
 
             case 'mouse_move':
-                // Using PS to move cursor: [Windows.Forms.Cursor]::Position = New-Object Drawing.Point(x, y)
                 await runPS(`[void][System.Reflection.Assembly]::LoadWithPartialName('System.Windows.Forms'); [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point(${params.x}, ${params.y})`);
                 return res.json({ success: true, output: `Moved mouse to ${params.x}, ${params.y}` });
 
             case 'mouse_click':
-                // Basic left click via PS
                 const clickScript = `
                     $signature = @'
                     [DllImport("user32.dll",CharSet=CharSet.Auto, CallingConvention=CallingConvention.StdCall)]
@@ -144,12 +146,10 @@ app.post('/api/action', async (req, res) => {
                 return res.json({ success: true, output: 'Clicked mouse' });
 
             case 'type_text':
-                // SendKeys via PS
                 await runPS(`Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('${params.text.replace(/'/g, "''")}')`);
                 return res.json({ success: true, output: `Typed: ${params.text}` });
 
             case 'key_press':
-                // e.g. "^c" for Ctrl+C
                 await runPS(`Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('${params.keys}')`);
                 return res.json({ success: true, output: `Pressed keys: ${params.keys}` });
 

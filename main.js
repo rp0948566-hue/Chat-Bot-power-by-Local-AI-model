@@ -109,10 +109,25 @@ const modalConfirm = getEl('modal-confirm-btn');
  * Custom Modal Utility
  * @param {Object} options - { title, text, confirmText, onConfirm }
  */
-function showModal({ title, text, confirmText, onConfirm }) {
-    modalTitle.innerText = title;
-    modalText.innerText = text;
-    modalConfirm.innerText = confirmText || 'Confirm';
+function showModal({ title, text, confirmText, onConfirm, showInput = false, inputValue = '' }) {
+    if (modalTitle) modalTitle.innerText = title;
+    if (modalText) modalText.innerText = text;
+    if (modalConfirm) modalConfirm.innerText = confirmText || 'Confirm';
+    
+    // Support input for Rename
+    let inputEl = document.getElementById('modal-input');
+    if (!inputEl && showInput) {
+        inputEl = document.createElement('input');
+        inputEl.id = 'modal-input';
+        inputEl.className = 'modal-input';
+        modalText.parentNode.insertBefore(inputEl, modalText.nextSibling);
+    }
+    if (inputEl) {
+        inputEl.style.display = showInput ? 'block' : 'none';
+        inputEl.value = inputValue;
+        if (showInput) setTimeout(() => inputEl.focus(), 100);
+    }
+
     modalOverlay.classList.add('active');
 
     const cleanup = () => {
@@ -121,7 +136,14 @@ function showModal({ title, text, confirmText, onConfirm }) {
         modalCancel.onclick  = null;
     };
 
-    modalConfirm.onclick = () => { onConfirm(); cleanup(); };
+    modalConfirm.onclick = () => { 
+        if (showInput) {
+            onConfirm(inputEl.value);
+        } else {
+            onConfirm();
+        }
+        cleanup(); 
+    };
     modalCancel.onclick  = cleanup;
     modalOverlay.onclick = (e) => { if (e.target === modalOverlay) cleanup(); };
 }
@@ -260,10 +282,10 @@ function setActiveModel(key) {
 }
 
 // Modal handling
-const openSidebar  = () => { sidebar?.classList.add('open'); overlay?.classList.add('active'); };
-const closeSidebar = () => { sidebar?.classList.remove('open'); overlay?.classList.remove('active'); };
+const toggleSidebar = () => { sidebar?.classList.toggle('collapsed'); document.querySelector('.main-layout')?.classList.toggle('sidebar-collapsed'); };
+const closeSidebar = () => { sidebar?.classList.add('collapsed'); document.querySelector('.main-layout')?.classList.add('sidebar-collapsed'); };
 
-['sidebar-open-home','sidebar-open-chat'].forEach(id => getEl(id)?.addEventListener('click', openSidebar));
+['sidebar-open-home','sidebar-open-chat'].forEach(id => getEl(id)?.addEventListener('click', toggleSidebar));
 getEl('sidebar-close')?.addEventListener('click', closeSidebar);
 overlay?.addEventListener('click', closeSidebar);
 
@@ -476,15 +498,20 @@ async function appendUserMessage(text, isQueued = false) {
     
     row.querySelector('.msg-delete-btn').onclick = async (e) => {
         e.stopPropagation();
-        if (confirm('Delete this message?')) {
-            const msgs = await db.getMessages(currentSessionId);
-            const msgObj = msgs.find(m => m.content === text && m.role === 'user');
-            if (msgObj?.id) {
-                await db.deleteMessage(msgObj.id);
-                row.remove();
-                await syncSessionToDisk(currentSessionId);
+        showModal({
+            title: 'Delete Message?',
+            text: 'Are you sure you want to delete this message? This cannot be undone.',
+            confirmText: 'Delete',
+            onConfirm: async () => {
+                const msgs = await db.getMessages(currentSessionId);
+                const msgObj = msgs.find(m => m.content === text && m.role === 'user');
+                if (msgObj?.id) {
+                    await db.deleteMessage(msgObj.id);
+                    row.remove();
+                    await syncSessionToDisk(currentSessionId);
+                }
             }
-        }
+        });
     };
     
     row.querySelector('.msg-copy-btn').onclick = (e) => copyToClipboard(text, e.currentTarget);
@@ -528,15 +555,20 @@ function finalizeAIMessage(el, text, model) {
     delBtn.innerText = '🗑';
     delBtn.onclick = async (e) => {
         e.stopPropagation();
-        if (confirm('Delete this message?')) {
-            const msgs = await db.getMessages(currentSessionId);
-            const msgObj = msgs.find(m => m.content === text && m.role === 'assistant');
-            if (msgObj?.id) {
-                await db.deleteMessage(msgObj.id);
-                row.remove();
-                await syncSessionToDisk(currentSessionId);
+        showModal({
+            title: 'Delete AI Message?',
+            text: 'Are you sure you want to delete this response?',
+            confirmText: 'Delete',
+            onConfirm: async () => {
+                const msgs = await db.getMessages(currentSessionId);
+                const msgObj = msgs.find(m => m.content === text && m.role === 'assistant');
+                if (msgObj?.id) {
+                    await db.deleteMessage(msgObj.id);
+                    row.remove();
+                    await syncSessionToDisk(currentSessionId);
+                }
             }
-        }
+        });
     };
     row.querySelector('.ai-content').appendChild(delBtn);
 
@@ -641,44 +673,18 @@ async function moveSessionToFolder(sessionId, folderId) {
 async function renderHistory() {
     if (!historyList) return;
     const sessions = await db.getAllSessions();
-    const folders  = await db.getMemory('folders') || [];
     
+    // Sort: Pinned first, then by updatedAt
+    sessions.sort((a, b) => {
+        if (a.isPinned && !b.isPinned) return -1;
+        if (!a.isPinned && b.isPinned) return 1;
+        return (b.updatedAt || 0) - (a.updatedAt || 0);
+    });
+
     historyList.innerHTML = '';
-
-    // 1. STARRED (Pinned Folders & Global Pinned Chats)
-    const pinnedFolders = folders.filter(f => f.isPinned);
-    const globalPinnedChats = sessions.filter(s => s.isPinned && !s.folderId);
-    
-    if (pinnedFolders.length > 0 || globalPinnedChats.length > 0) {
-        appendHistoryHeader('Starred');
-        pinnedFolders.forEach(f => renderFolderWithChats(f, sessions));
-        globalPinnedChats.forEach(s => historyList.appendChild(createHistoryItem(s)));
-    }
-
-    // 2. FOLDERS (Unpinned)
-    const otherFolders = folders.filter(f => !f.isPinned);
-    if (otherFolders.length > 0) {
-        appendHistoryHeader('Categories');
-        otherFolders.forEach(f => renderFolderWithChats(f, sessions));
-    }
-
-    // 3. RECENT (Smart Categories: Today, Yesterday, Earlier)
-    const recent = sessions.filter(s => !s.isPinned && !s.folderId);
-    if (recent.length > 0) {
-        const groups = groupSessionsByDate(recent);
-        if (groups.today.length > 0) {
-            appendHistoryHeader('Today');
-            groups.today.forEach(s => historyList.appendChild(createHistoryItem(s)));
-        }
-        if (groups.yesterday.length > 0) {
-            appendHistoryHeader('Yesterday');
-            groups.yesterday.forEach(s => historyList.appendChild(createHistoryItem(s)));
-        }
-        if (groups.earlier.length > 0) {
-            appendHistoryHeader('Earlier');
-            groups.earlier.forEach(s => historyList.appendChild(createHistoryItem(s)));
-        }
-    }
+    sessions.forEach(s => {
+        historyList.appendChild(createHistoryItem(s));
+    });
 }
 
 function renderFolderWithChats(folder, allSessions) {
@@ -720,50 +726,106 @@ function appendHistoryHeader(text) {
 
 function createHistoryItem(session, isSub = false) {
     const div = document.createElement('div');
-    div.className = `history-item ${session.id === currentSessionId ? 'active' : ''} ${isSub ? 'sub-item' : ''}`;
+    div.className = `history-item ${session.id === currentSessionId ? 'active' : ''}`;
+    div.dataset.id = session.id;
     div.onclick = () => { loadSession(session.id); closeSidebar(); };
     
     div.innerHTML = `
-        <div class="hist-main">
-            <span class="history-item-title">${escapeHtml(session.title)}</span>
-        </div>
-        <div class="hist-actions">
-            <button class="hist-action-btn pin-btn" title="${session.isPinned ? 'Unpin' : 'Pin'}">
-                ${session.isPinned ? '📍' : '📌'}
-            </button>
-            <button class="hist-action-btn folder-btn" title="Move to folder">📁</button>
-            <button class="hist-action-btn delete-btn" title="Delete">🗑</button>
+        <div class="history-item-content">${escapeHtml(session.title)}</div>
+        <div class="history-item-actions">
+            ${session.isPinned ? '<span class="history-item-pin">📌</span>' : ''}
+            <div class="history-item-more">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+            </div>
         </div>
     `;
 
-    div.querySelector('.pin-btn').onclick = (e) => togglePin(session.id, e);
-    div.querySelector('.delete-btn').onclick = async (e) => {
+    const moreBtn = div.querySelector('.history-item-more');
+    moreBtn.onclick = (e) => {
         e.stopPropagation();
-        showModal({
-            title: 'Delete Chat?',
-            text: `Are you sure you want to delete "${session.title}"? This cannot be undone.`,
-            confirmText: 'Delete',
-            onConfirm: async () => {
-                await db.deleteSession(session.id);
-                await fetch(`http://localhost:3001/api/delete_session/${session.id}`, { method: 'DELETE' }).catch(() => {});
-                if (currentSessionId === session.id) startNewChat();
-                else renderHistory();
-            }
-        });
-    };
-    div.querySelector('.folder-btn').onclick = async (e) => {
-        e.stopPropagation();
-        const folders = await db.getMemory('folders') || [];
-        if (folders.length === 0) return alert('Create a folder first!');
-        const folderList = folders.map((f, i) => `${i+1}. ${f.name}`).join('\n');
-        const choice = prompt(`Move to folder:\n0. None\n${folderList}`);
-        if (choice === null) return;
-        const idx = parseInt(choice) - 1;
-        await moveSessionToFolder(session.id, idx === -1 ? null : folders[idx].id);
+        showContextMenu(session.id, moreBtn);
     };
 
     return div;
 }
+
+let contextSessionId = null;
+const ctxMenu = document.getElementById('chat-context-menu');
+
+function showContextMenu(sessionId, anchor) {
+    contextSessionId = sessionId;
+    const rect = anchor.getBoundingClientRect();
+    
+    ctxMenu.style.display = 'block';
+    ctxMenu.style.left = (rect.left - 180) + 'px';
+    ctxMenu.style.top = (rect.bottom + 5) + 'px';
+    ctxMenu.classList.add('active');
+
+    // Update dynamic text
+    db.getSession(sessionId).then(s => {
+        if (s) {
+            document.getElementById('menu-pin').innerHTML = s.isPinned ? 
+                '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6a3 3 0 0 0-3-3 3 3 0 0 0-3 3v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24z"/></svg>Unpin chat' : 
+                '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6a3 3 0 0 0-3-3 3 3 0 0 0-3 3v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24z"/></svg>Pin chat';
+        }
+    });
+
+    const closeHandler = () => { ctxMenu.classList.remove('active'); ctxMenu.style.display = 'none'; document.removeEventListener('click', closeHandler); };
+    setTimeout(() => document.addEventListener('click', closeHandler), 10);
+}
+
+document.getElementById('menu-delete')?.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    ctxMenu.classList.remove('active');
+    ctxMenu.style.display = 'none';
+    if (!contextSessionId) return;
+    showModal({
+        title: 'Delete Chat?',
+        text: 'Are you sure you want to delete this session?',
+        confirmText: 'Delete',
+        onConfirm: async () => {
+            await db.deleteSession(contextSessionId);
+            await fetch(`http://localhost:3001/api/delete_session/${contextSessionId}`, { method: 'DELETE' }).catch(() => {});
+            if (currentSessionId === contextSessionId) startNewChat();
+            else renderHistory();
+        }
+    });
+});
+
+document.getElementById('menu-pin')?.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    ctxMenu.classList.remove('active');
+    ctxMenu.style.display = 'none';
+    if (!contextSessionId) return;
+    const s = await db.getSession(contextSessionId);
+    if (s) {
+        await db.updateSession(contextSessionId, { isPinned: !s.isPinned });
+        await syncSessionToDisk(contextSessionId);
+        renderHistory();
+    }
+});
+
+document.getElementById('menu-rename')?.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    ctxMenu.classList.remove('active');
+    ctxMenu.style.display = 'none';
+    if (!contextSessionId) return;
+    const old = await db.getSession(contextSessionId);
+    showModal({
+        title: 'Rename Chat',
+        text: 'Enter a new title for this conversation:',
+        confirmText: 'Rename',
+        showInput: true,
+        inputValue: old?.title || '',
+        onConfirm: async (newTitle) => {
+            if (newTitle) {
+                await db.updateSession(contextSessionId, { title: newTitle });
+                await syncSessionToDisk(contextSessionId);
+                renderHistory();
+            }
+        }
+    });
+});
 
 function createFolderUI(folder) {
     const div = document.createElement('div');
@@ -823,11 +885,16 @@ async function loadSession(id) {
                     </div>
                 `;
                 row.querySelector('.msg-delete-btn').onclick = async () => {
-                    if (confirm('Delete message?')) {
-                        await db.deleteMessage(m.id);
-                        row.remove();
-                        await syncSessionToDisk(currentSessionId);
-                    }
+                    showModal({
+                        title: 'Delete Message?',
+                        text: 'Remove this message from history?',
+                        confirmText: 'Delete',
+                        onConfirm: async () => {
+                            await db.deleteMessage(m.id);
+                            row.remove();
+                            await syncSessionToDisk(currentSessionId);
+                        }
+                    });
                 };
             } else {
                 row.className = 'message-row assistant';
@@ -840,11 +907,16 @@ async function loadSession(id) {
                     </div>
                 `;
                 row.querySelector('.msg-delete-btn').onclick = async () => {
-                    if (confirm('Delete message?')) {
-                        await db.deleteMessage(m.id);
-                        row.remove();
-                        await syncSessionToDisk(currentSessionId);
-                    }
+                    showModal({
+                        title: 'Delete Message?',
+                        text: 'Remove this message from history?',
+                        confirmText: 'Delete',
+                        onConfirm: async () => {
+                            await db.deleteMessage(m.id);
+                            row.remove();
+                            await syncSessionToDisk(currentSessionId);
+                        }
+                    });
                 };
             }
             fragment.appendChild(row);
@@ -987,6 +1059,51 @@ document.getElementById('link-linkedin-btn')?.addEventListener('click', async ()
     }
 });
 
+// ─── Rail Navigation Logic ────────────────────────────────────────────────
+const railHome = document.getElementById('nav-home');
+const railChat = document.getElementById('nav-chat');
+const railNew  = document.getElementById('nav-new-chat-rail');
+const historyPanel = document.getElementById('history-panel');
+const panelBackBtn = document.getElementById('panel-back-btn');
+
+function setRailActive(el) {
+    document.querySelectorAll('.rail-item').forEach(item => item.classList.remove('active'));
+    el?.classList.add('active');
+}
+
+railHome?.addEventListener('click', () => {
+    setRailActive(railHome);
+    historyPanel?.classList.remove('active');
+    chatView?.classList.remove('active');
+    homeView?.classList.add('active');
+});
+
+railChat?.addEventListener('click', () => {
+    setRailActive(railChat);
+    historyPanel?.classList.toggle('active');
+    if (historyPanel?.classList.contains('active')) {
+        renderHistory();
+    }
+});
+
+railNew?.addEventListener('click', () => {
+    startNewChat();
+    historyPanel?.classList.remove('active');
+    setRailActive(railHome); // Return to home view state for new chat? Or keep chat active.
+});
+
+panelBackBtn?.addEventListener('click', () => {
+    historyPanel?.classList.remove('active');
+    setRailActive(railHome);
+});
+
+// Adjust main layout for rail
+const mainLayout = document.querySelector('.main-layout');
+if (mainLayout) {
+    mainLayout.style.marginLeft = '68px';
+    mainLayout.style.width = 'calc(100% - 68px)';
+}
+
 // RUN 
 (async () => {
     try {
@@ -999,11 +1116,8 @@ document.getElementById('link-linkedin-btn')?.addEventListener('click', async ()
             homeView?.classList.add('active');
             await renderHistory();
         }
-        setActiveModel(activeModel);
     } catch (err) {
         console.error('Init error:', err);
-        // Always show home view as safe fallback
         homeView?.classList.add('active');
-        chatView?.classList.remove('active');
     }
 })();
