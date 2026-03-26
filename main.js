@@ -98,6 +98,33 @@ const newChatBtn       = getEl('new-chat-btn');
 // ─── Global Constants Dependent on DOM ──────────────────────────────────────
 const modelOptions = document.querySelectorAll('.model-option');
 const settingsNavItems = document.querySelectorAll('.settings-nav-item');
+
+const modalOverlay = getEl('custom-modal-overlay');
+const modalTitle   = getEl('modal-title');
+const modalText    = getEl('modal-text');
+const modalCancel  = getEl('modal-cancel-btn');
+const modalConfirm = getEl('modal-confirm-btn');
+
+/**
+ * Custom Modal Utility
+ * @param {Object} options - { title, text, confirmText, onConfirm }
+ */
+function showModal({ title, text, confirmText, onConfirm }) {
+    modalTitle.innerText = title;
+    modalText.innerText = text;
+    modalConfirm.innerText = confirmText || 'Confirm';
+    modalOverlay.classList.add('active');
+
+    const cleanup = () => {
+        modalOverlay.classList.remove('active');
+        modalConfirm.onclick = null;
+        modalCancel.onclick  = null;
+    };
+
+    modalConfirm.onclick = () => { onConfirm(); cleanup(); };
+    modalCancel.onclick  = cleanup;
+    modalOverlay.onclick = (e) => { if (e.target === modalOverlay) cleanup(); };
+}
 const tabPanes = document.querySelectorAll('.tab-pane');
 
 // ─── Utility Functions ──────────────────────────────────────────────────────
@@ -438,6 +465,7 @@ async function appendUserMessage(text, isQueued = false) {
     row.className = 'message-row user' + (isQueued ? ' queued' : '');
     row.innerHTML = `
         <div class="user-bubble">
+            <button class="msg-delete-btn" title="Delete message">🗑</button>
             ${isQueued ? '<span class="queued-badge">Queued</span>' : ''}
             <div class="user-text">${escapeHtml(text)}</div>
             <button class="msg-copy-btn" title="Copy Message">
@@ -445,6 +473,19 @@ async function appendUserMessage(text, isQueued = false) {
             </button>
         </div>
     `;
+    
+    row.querySelector('.msg-delete-btn').onclick = async (e) => {
+        e.stopPropagation();
+        if (confirm('Delete this message?')) {
+            const msgs = await db.getMessages(currentSessionId);
+            const msgObj = msgs.find(m => m.content === text && m.role === 'user');
+            if (msgObj?.id) {
+                await db.deleteMessage(msgObj.id);
+                row.remove();
+                await syncSessionToDisk(currentSessionId);
+            }
+        }
+    };
     
     row.querySelector('.msg-copy-btn').onclick = (e) => copyToClipboard(text, e.currentTarget);
     
@@ -480,6 +521,24 @@ function finalizeAIMessage(el, text, model) {
     const row = el.closest('.message-row');
     const copyBtn = row.querySelector('.msg-copy-btn');
     if (copyBtn) copyBtn.onclick = (e) => copyToClipboard(text, e.currentTarget);
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'msg-delete-btn';
+    delBtn.title = 'Delete message';
+    delBtn.innerText = '🗑';
+    delBtn.onclick = async (e) => {
+        e.stopPropagation();
+        if (confirm('Delete this message?')) {
+            const msgs = await db.getMessages(currentSessionId);
+            const msgObj = msgs.find(m => m.content === text && m.role === 'assistant');
+            if (msgObj?.id) {
+                await db.deleteMessage(msgObj.id);
+                row.remove();
+                await syncSessionToDisk(currentSessionId);
+            }
+        }
+    };
+    row.querySelector('.ai-content').appendChild(delBtn);
 
     const note = document.createElement('div');
     note.className = 'upgrade-note';
@@ -537,6 +596,17 @@ async function togglePin(sessionId, e) {
     renderHistory();
 }
 
+async function toggleFolderPin(folderId, e) {
+    if (e) e.stopPropagation();
+    const folders = await db.getMemory('folders') || [];
+    const folder = folders.find(f => f.id === folderId);
+    if (folder) {
+        folder.isPinned = !folder.isPinned;
+        await db.setMemory('folders', folders);
+        renderHistory();
+    }
+}
+
 async function createFolder() {
     const name = prompt('Folder Name:');
     if (!name) return;
@@ -575,34 +645,70 @@ async function renderHistory() {
     
     historyList.innerHTML = '';
 
-    // 1. Pinned Section
-    const pinned = sessions.filter(s => s.isPinned);
-    if (pinned.length > 0) {
-        appendHistoryHeader('Pinned');
-        pinned.forEach(s => historyList.appendChild(createHistoryItem(s)));
+    // 1. STARRED (Pinned Folders & Global Pinned Chats)
+    const pinnedFolders = folders.filter(f => f.isPinned);
+    const globalPinnedChats = sessions.filter(s => s.isPinned && !s.folderId);
+    
+    if (pinnedFolders.length > 0 || globalPinnedChats.length > 0) {
+        appendHistoryHeader('Starred');
+        pinnedFolders.forEach(f => renderFolderWithChats(f, sessions));
+        globalPinnedChats.forEach(s => historyList.appendChild(createHistoryItem(s)));
     }
 
-    // 2. Folders
-    if (folders.length > 0) {
-        appendHistoryHeader('Folders');
-        folders.forEach(f => {
-            const folderEl = createFolderUI(f);
-            historyList.appendChild(folderEl);
-            
-            const folderSessions = sessions.filter(s => s.folderId === f.id);
-            folderSessions.forEach(s => {
-                const item = createHistoryItem(s, true);
-                historyList.appendChild(item);
-            });
-        });
+    // 2. FOLDERS (Unpinned)
+    const otherFolders = folders.filter(f => !f.isPinned);
+    if (otherFolders.length > 0) {
+        appendHistoryHeader('Categories');
+        otherFolders.forEach(f => renderFolderWithChats(f, sessions));
     }
 
-    // 3. Recent (Unpinned, No folder)
+    // 3. RECENT (Smart Categories: Today, Yesterday, Earlier)
     const recent = sessions.filter(s => !s.isPinned && !s.folderId);
     if (recent.length > 0) {
-        appendHistoryHeader('Recent');
-        recent.forEach(s => historyList.appendChild(createHistoryItem(s)));
+        const groups = groupSessionsByDate(recent);
+        if (groups.today.length > 0) {
+            appendHistoryHeader('Today');
+            groups.today.forEach(s => historyList.appendChild(createHistoryItem(s)));
+        }
+        if (groups.yesterday.length > 0) {
+            appendHistoryHeader('Yesterday');
+            groups.yesterday.forEach(s => historyList.appendChild(createHistoryItem(s)));
+        }
+        if (groups.earlier.length > 0) {
+            appendHistoryHeader('Earlier');
+            groups.earlier.forEach(s => historyList.appendChild(createHistoryItem(s)));
+        }
     }
+}
+
+function renderFolderWithChats(folder, allSessions) {
+    const folderEl = createFolderUI(folder);
+    historyList.appendChild(folderEl);
+    
+    const folderSessions = allSessions.filter(s => s.folderId === folder.id);
+    // Sort pinned chats in folder to the top
+    folderSessions.sort((a, b) => (b.isPinned ? 1 : 0) - (a.isPinned ? 1 : 0));
+    folderSessions.forEach(s => {
+        const item = createHistoryItem(s, true);
+        historyList.appendChild(item);
+    });
+}
+
+function groupSessionsByDate(sessions) {
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    const groups = { today: [], yesterday: [], earlier: [] };
+    sessions.forEach(s => {
+        const d = new Date(s.updatedAt || s.createdAt || Date.now());
+        d.setHours(0,0,0,0);
+        if (d.getTime() === today.getTime()) groups.today.push(s);
+        else if (d.getTime() === yesterday.getTime()) groups.yesterday.push(s);
+        else groups.earlier.push(s);
+    });
+    return groups;
 }
 
 function appendHistoryHeader(text) {
@@ -633,12 +739,17 @@ function createHistoryItem(session, isSub = false) {
     div.querySelector('.pin-btn').onclick = (e) => togglePin(session.id, e);
     div.querySelector('.delete-btn').onclick = async (e) => {
         e.stopPropagation();
-        if (confirm('Delete this chat?')) {
-            await db.deleteSession(session.id);
-            await fetch(`http://localhost:3001/api/delete_session/${session.id}`, { method: 'DELETE' }).catch(() => {});
-            if (currentSessionId === session.id) startNewChat();
-            else renderHistory();
-        }
+        showModal({
+            title: 'Delete Chat?',
+            text: `Are you sure you want to delete "${session.title}"? This cannot be undone.`,
+            confirmText: 'Delete',
+            onConfirm: async () => {
+                await db.deleteSession(session.id);
+                await fetch(`http://localhost:3001/api/delete_session/${session.id}`, { method: 'DELETE' }).catch(() => {});
+                if (currentSessionId === session.id) startNewChat();
+                else renderHistory();
+            }
+        });
     };
     div.querySelector('.folder-btn').onclick = async (e) => {
         e.stopPropagation();
@@ -656,11 +767,25 @@ function createHistoryItem(session, isSub = false) {
 
 function createFolderUI(folder) {
     const div = document.createElement('div');
-    div.className = 'history-folder-item';
+    div.className = `history-folder-item ${folder.isPinned ? 'pinned' : ''}`;
+    
+    // Smart Icon Detection
+    let icon = '📂';
+    const name = folder.name.toLowerCase();
+    if (name.includes('tech') || name.includes('code')) icon = '💻';
+    else if (name.includes('work') || name.includes('comp')) icon = '💼';
+    else if (name.includes('small') || name.includes('mini')) icon = '🧊';
+    else if (name.includes('big') || name.includes('large')) icon = '🏔️';
+    else if (name.includes('brain') || name.includes('ai')) icon = '🧠';
+
     div.innerHTML = `
-        <span class="folder-title">📂 ${escapeHtml(folder.name)}</span>
-        <button class="folder-action-del">×</button>
+        <span class="folder-title">${icon} ${escapeHtml(folder.name)}</span>
+        <div class="folder-actions">
+            <button class="folder-action-pin" title="${folder.isPinned ? 'Unpin' : 'Pin'}">${folder.isPinned ? '📍' : '📌'}</button>
+            <button class="folder-action-del">×</button>
+        </div>
     `;
+    div.querySelector('.folder-action-pin').onclick = (e) => toggleFolderPin(folder.id, e);
     div.querySelector('.folder-action-del').onclick = (e) => deleteFolder(folder.id, e);
     return div;
 }
@@ -688,17 +813,41 @@ async function loadSession(id) {
         // Efficiently render all messages
         const fragment = document.createDocumentFragment();
         messages.forEach(m => {
+            const row = document.createElement('div');
             if (m.role === 'user') {
-                const row = document.createElement('div');
                 row.className = 'message-row user';
-                row.innerHTML = `<div class="user-bubble"><div class="user-text">${escapeHtml(m.content)}</div></div>`;
-                fragment.appendChild(row);
+                row.innerHTML = `
+                    <div class="user-bubble">
+                        <button class="msg-delete-btn" title="Delete message">🗑</button>
+                        <div class="user-text">${escapeHtml(m.content)}</div>
+                    </div>
+                `;
+                row.querySelector('.msg-delete-btn').onclick = async () => {
+                    if (confirm('Delete message?')) {
+                        await db.deleteMessage(m.id);
+                        row.remove();
+                        await syncSessionToDisk(currentSessionId);
+                    }
+                };
             } else {
-                const row = document.createElement('div');
                 row.className = 'message-row assistant';
-                row.innerHTML = `<div class="ai-avatar neutral"></div><div class="ai-content"><div class="ai-text">${simpleMarkdown(m.content)}</div><div class="upgrade-note">Mode: <strong>${m.model}</strong></div></div>`;
-                fragment.appendChild(row);
+                row.innerHTML = `
+                    <div class="ai-avatar neutral"></div>
+                    <div class="ai-content">
+                        <button class="msg-delete-btn" title="Delete message">🗑</button>
+                        <div class="ai-text">${simpleMarkdown(m.content)}</div>
+                        <div class="upgrade-note">Mode: <strong>${m.model}</strong></div>
+                    </div>
+                `;
+                row.querySelector('.msg-delete-btn').onclick = async () => {
+                    if (confirm('Delete message?')) {
+                        await db.deleteMessage(m.id);
+                        row.remove();
+                        await syncSessionToDisk(currentSessionId);
+                    }
+                };
             }
+            fragment.appendChild(row);
         });
         messagesArea.appendChild(fragment);
     }

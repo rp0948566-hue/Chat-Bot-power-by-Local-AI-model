@@ -203,6 +203,25 @@ class ChatDB {
         });
     }
 
+    async deleteMessage(id) {
+        await this._ready;
+        return this._req(
+            this._db.transaction(STORES.messages, 'readwrite')
+                    .objectStore(STORES.messages).delete(id)
+        );
+    }
+
+    async updateMessage(id, updates) {
+        await this._ready;
+        const tx = this._db.transaction(STORES.messages, 'readwrite');
+        const store = tx.objectStore(STORES.messages);
+        const msg = await this._req(store.get(id));
+        if (!msg) return;
+        Object.assign(msg, updates);
+        await this._req(store.put(msg));
+        await tx.done;
+    }
+
     // ── Global KV Memory ──────────────────────────────────────────────────
 
     async setMemory(key, value) {
