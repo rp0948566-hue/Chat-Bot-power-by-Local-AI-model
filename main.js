@@ -685,6 +685,11 @@ async function renderHistory() {
     sessions.forEach(s => {
         historyList.appendChild(createHistoryItem(s));
     });
+    
+    // Smoothly update max-height if expanded
+    if (!historyList.classList.contains('collapsed')) {
+        historyList.style.maxHeight = historyList.scrollHeight + "px";
+    }
 }
 
 function renderFolderWithChats(folder, allSessions) {
@@ -1113,6 +1118,20 @@ panelBackBtn?.addEventListener('click', () => {
     mainLayout?.classList.remove('history-open');
     document.body.classList.remove('history-panel-open');
     setRailActive(railHome);
+});
+
+// RECENTS COLLAPSIBLE LOGIC
+const recentsHeader = document.querySelector('.recents-header');
+recentsHeader?.addEventListener('click', () => {
+    const isCollapsed = recentsHeader.classList.toggle('collapsed');
+    if (historyList) {
+        historyList.classList.toggle('collapsed', isCollapsed);
+        if (!isCollapsed) {
+            historyList.style.maxHeight = historyList.scrollHeight + "px";
+        } else {
+            historyList.style.maxHeight = "0px";
+        }
+    }
 });
 
 document.addEventListener('click', (e) => {
