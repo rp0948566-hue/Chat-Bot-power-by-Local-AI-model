@@ -131,6 +131,12 @@ function appendAIMessage() {
     return currentAiEl;
 }
 
+function setAvatarState(el, state) {
+    const avatar = el.closest('.message-row').querySelector('.ai-avatar');
+    if (!avatar) return;
+    avatar.className = 'ai-avatar ' + state;
+}
+
 function finalizeAIMessage(el, fullText) {
     el.innerHTML = simpleMarkdown(fullText);
     // action buttons
@@ -204,10 +210,20 @@ async function sendMessage(userText) {
                     const obj = JSON.parse(line);
                     const token = obj?.message?.content || '';
                     if (token) {
-                        if (firstChunk) { aiEl.innerHTML = ''; firstChunk = false; }
+                        if (firstChunk) { 
+                            aiEl.innerHTML = ''; firstChunk = false; 
+                            setAvatarState(aiEl, 'talking');
+                        }
                         fullResponse += token;
                         aiEl.innerHTML = simpleMarkdown(fullResponse);
                         scrollBottom();
+                        
+                        // Adaptive expression based on content
+                        if (fullResponse.toLowerCase().includes('happy') || fullResponse.toLowerCase().includes('!')) {
+                            setAvatarState(aiEl, 'happy');
+                        } else if (fullResponse.toLowerCase().includes('think') || fullResponse.toLowerCase().includes('?')) {
+                            setAvatarState(aiEl, 'thinking');
+                        }
                     }
                 } catch {}
             }
@@ -215,6 +231,7 @@ async function sendMessage(userText) {
 
         messages.push({ role: 'assistant', content: fullResponse });
         finalizeAIMessage(aiEl, fullResponse);
+        setAvatarState(aiEl, 'neutral');
 
     } catch (err) {
         aiEl.innerHTML = `<span style="color:#f87171">⚠ Could not connect to Ollama.<br>Make sure it's running: <code>ollama run llama3</code><br><small>${err.message}</small></span>`;

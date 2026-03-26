@@ -14,10 +14,15 @@
     --transition: all 0.22s cubic-bezier(0.4,0,0.2,1);
 }
 
-html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; overflow: hidden; }
+html,body { height: 100%; background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; overflow: hidden; }
 
-
-/* ── SIDEBAR OVERLAY ─────────────────────── */
+/* ── ENSURE NO UNWANTED OVERLAYS ── */
+body::before, body::after {
+    display: none !important;
+    content: none !important;
+    box-shadow: none !important;
+    border: none !important;
+}
 .sidebar-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 200; opacity: 0; pointer-events: none; transition: opacity 0.25s; }
 .sidebar-overlay.active { opacity: 1; pointer-events: all; }
 
@@ -140,19 +145,49 @@ textarea::placeholder { color: var(--muted); }
 }
 
 .ai-avatar {
-    width: 30px; height: 30px;
+    width: 32px; height: 32px;
     border-radius: 50%;
-    background: #1e88e5; /* Exact Blue from Kimi */
+    background: #1e88e5;
     display: flex; align-items: center; justify-content: center;
-    gap: 3px;
+    gap: 4px;
     flex-shrink: 0;
     margin-top: 2px;
+    position: relative;
+    box-shadow: 0 0 12px rgba(30,136,229,0.3);
+    animation: avatar-float 3s ease-in-out infinite;
 }
 .ai-avatar::before, .ai-avatar::after {
     content: '';
-    width: 3.5px; height: 7px;
+    width: 3.5px; height: 8px;
     background: #fff;
     border-radius: 4px;
+    transition: all 0.25s cubic-bezier(0.4,0,0.2,1);
+    animation: blink-anim 5s infinite;
+}
+
+/* Eye States */
+.ai-avatar.happy::before, .ai-avatar.happy::after {
+    height: 4px; border-radius: 2px;
+}
+.ai-avatar.thinking::before { transform: translateY(-2px); }
+.ai-avatar.thinking::after { transform: translateY(2px); }
+.ai-avatar.talking::before, .ai-avatar.talking::after {
+    animation: talk-eyes 0.4s infinite;
+}
+
+@keyframes blink-anim {
+    0%, 90%, 94%, 100% { transform: scaleY(1); opacity: 1; }
+    92% { transform: scaleY(0.1); opacity: 0.5; }
+}
+
+@keyframes avatar-float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-2px); }
+}
+
+@keyframes talk-eyes {
+    0%, 100% { transform: scaleY(1.1); }
+    50% { transform: scaleY(0.8); }
 }
 
 .ai-content { flex: 1; min-width: 0; }
