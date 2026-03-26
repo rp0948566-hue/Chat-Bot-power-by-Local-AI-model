@@ -285,7 +285,7 @@ function setActiveModel(key) {
 const toggleSidebar = () => { sidebar?.classList.toggle('collapsed'); document.querySelector('.main-layout')?.classList.toggle('sidebar-collapsed'); };
 const closeSidebar = () => { sidebar?.classList.add('collapsed'); document.querySelector('.main-layout')?.classList.add('sidebar-collapsed'); };
 
-['sidebar-open-home','sidebar-open-chat'].forEach(id => getEl(id)?.addEventListener('click', toggleSidebar));
+['global-main-toggle'].forEach(id => getEl(id)?.addEventListener('click', toggleSidebar));
 getEl('sidebar-close')?.addEventListener('click', closeSidebar);
 overlay?.addEventListener('click', closeSidebar);
 
@@ -1074,6 +1074,8 @@ function setRailActive(el) {
 railHome?.addEventListener('click', () => {
     setRailActive(railHome);
     historyPanel?.classList.remove('active');
+    mainLayout?.classList.remove('history-open');
+    document.body.classList.remove('history-panel-open');
     chatView?.classList.remove('active');
     homeView?.classList.add('active');
 });
@@ -1081,6 +1083,8 @@ railHome?.addEventListener('click', () => {
 railChat?.addEventListener('click', () => {
     setRailActive(railChat);
     historyPanel?.classList.toggle('active');
+    mainLayout?.classList.toggle('history-open');
+    document.body.classList.toggle('history-panel-open');
     if (historyPanel?.classList.contains('active')) {
         renderHistory();
     }
@@ -1089,20 +1093,30 @@ railChat?.addEventListener('click', () => {
 railNew?.addEventListener('click', () => {
     startNewChat();
     historyPanel?.classList.remove('active');
+    mainLayout?.classList.remove('history-open');
+    document.body.classList.remove('history-panel-open');
     setRailActive(railHome); // Return to home view state for new chat? Or keep chat active.
 });
 
 panelBackBtn?.addEventListener('click', () => {
     historyPanel?.classList.remove('active');
+    mainLayout?.classList.remove('history-open');
+    document.body.classList.remove('history-panel-open');
     setRailActive(railHome);
 });
 
-// Adjust main layout for rail
-const mainLayout = document.querySelector('.main-layout');
-if (mainLayout) {
-    mainLayout.style.marginLeft = '68px';
-    mainLayout.style.width = 'calc(100% - 68px)';
-}
+document.addEventListener('click', (e) => {
+    if (historyPanel?.classList.contains('active')) {
+        if (!historyPanel.contains(e.target) && !railChat?.contains(e.target)) {
+            historyPanel.classList.remove('active');
+            mainLayout?.classList.remove('history-open');
+            document.body.classList.remove('history-panel-open');
+            setRailActive(railHome);
+        }
+    }
+});
+
+// Removed hardcoded main layout style adjustment so CSS transitions work properly
 
 // RUN 
 (async () => {

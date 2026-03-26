@@ -15,20 +15,21 @@
 <!-- SIDEBAR OVERLAY -->
 <div class="sidebar-overlay" id="sidebar-overlay"></div>
 
+<!-- GLOBAL SIDEBAR TOGGLE -->
+<button class="global-main-toggle" id="global-main-toggle" title="Toggle Sidebar">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+</button>
+
 <!-- LEFT SIDEBAR -->
 <aside class="sidebar" id="sidebar">
     <nav class="sidebar-rail">
-        <!-- Optional Top Logo / App Icon (small) -->
-        <a class="rail-item rail-logo" title="Tajas">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" opacity="0.9"><rect width="24" height="24" rx="6"/><circle cx="12" cy="12" r="4" fill="#131314"/></svg>
-        </a>
-        <div class="rail-divider"></div>
+        <div class="rail-divider" style="margin-top: 6px;"></div>
 
         <a class="rail-item active" id="nav-home" title="Home">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
         </a>
         <a class="rail-item" id="nav-chat" title="Chat & History">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.4 7.4L22 10.6l-5.6 4.8L18.4 22 12 18.2 5.6 22l2-6.6L2 10.6l7.6-1.2L12 2z"/></svg>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
         </a>
         <a class="rail-item" id="nav-new-chat-rail" title="New Chat">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -72,9 +73,6 @@
     <div id="home-view" class="view active">
         <header class="home-header">
             <div class="header-left">
-                <button class="sidebar-toggle" id="sidebar-open-home" title="Open Sidebar">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
-                </button>
             </div>
             <div class="header-center"></div>
             <div class="header-right"></div>
@@ -111,9 +109,6 @@
     <div id="chat-view" class="view">
         <header class="chat-header">
             <div class="header-left">
-                <button class="sidebar-toggle" id="sidebar-open-chat" title="Open Sidebar">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
-                </button>
                 <button class="home-back-btn" id="back-to-home-btn" title="Back to Home">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
                     <span>Home</span>
