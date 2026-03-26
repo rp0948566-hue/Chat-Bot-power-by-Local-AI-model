@@ -219,7 +219,8 @@ class ChatDB {
         if (!msg) return;
         Object.assign(msg, updates);
         await this._req(store.put(msg));
-        await tx.done;
+        // Simple return once done
+        return msg;
     }
 
     // ── Global KV Memory ──────────────────────────────────────────────────

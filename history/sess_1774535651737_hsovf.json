@@ -1,0 +1,25 @@
+{
+  "id": "sess_1774535651737_hsovf",
+  "title": "hiu",
+  "model": "instant",
+  "createdAt": "2026-03-26T14:34:11.737Z",
+  "updatedAt": "2026-03-26T14:34:11.749Z",
+  "isPinned": false,
+  "folderId": null,
+  "messages": [
+    {
+      "sessionId": "sess_1774535651737_hsovf",
+      "role": "user",
+      "content": "hiu",
+      "model": "instant",
+      "timestamp": "2026-03-26T14:34:11.747Z",
+      "id": 27239
+    },
+    {
+      "sessionId": "sess_1774535651737_hsovf",
+      "role": "assistant",
+      "content": "Hi! It seems like you might have accidentally typed \"hiu\" instead of a complete message. That's okay! I'm here to help with any questions or topics you'd like to discuss",
+      "model": "instant",
+      "timestamp": "2026-03-26T14:34:13.940Z",
+      "id": 27240,
+      "interrupted": 

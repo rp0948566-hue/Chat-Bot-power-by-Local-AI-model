@@ -461,24 +461,54 @@ async function askOllama(aiEl) {
         const decoder = new TextDecoder();
         aiEl.innerHTML = '';
 
+        let tokenCount = 0;
+        let partialMessageId = null;
+
         while (true) {
             const { done, value } = await reader.read();
             if (done) break;
             const chunk = decoder.decode(value, { stream: true });
-            chunk.split('\n').filter(l => l.trim()).forEach(line => {
+            
+            const lines = chunk.split('\n').filter(l => l.trim());
+            for (const line of lines) {
                 try {
                     const token = JSON.parse(line).message?.content || '';
                     full += token;
+                    tokenCount++;
+                    
                     aiEl.innerHTML = simpleMarkdown(full);
                     scrollBottom();
+
+                    // Periodic intermediate save (every 3 tokens to be more responsive to interrupts)
+                    if (tokenCount % 3 === 0 || tokenCount === 1) {
+                        if (!partialMessageId) {
+                            const m = await db.addMessage(currentSessionId, 'assistant', full, activeModel);
+                            partialMessageId = m.id;
+                            await db.updateMessage(partialMessageId, { interrupted: true });
+                        } else {
+                            await db.updateMessage(partialMessageId, { content: full, interrupted: true });
+                        }
+                        await syncSessionToDisk(currentSessionId);
+                    }
                 } catch {}
-            });
+            }
         }
+        
+        // Final Finalization - remove interrupted flag
+        if (partialMessageId) {
+            await db.updateMessage(partialMessageId, { content: full, interrupted: false });
+        } else {
+            // Save if message was extremely short (< 3 tokens)
+            await db.addMessage(currentSessionId, 'assistant', full, activeModel);
+        }
+        
         messages.push({ role: 'assistant', content: full });
-        db.addMessage(currentSessionId, 'assistant', full, activeModel);
         finalizeAIMessage(aiEl, full, activeModel);
+        await syncSessionToDisk(currentSessionId);
+        
     } catch (e) {
         aiEl.innerHTML = `<span style="color:#f87171">⚠ Connection failed. Ensure Ollama is running.</span>`;
+        console.error('Streaming error:', e);
     }
 }
 
@@ -918,7 +948,17 @@ async function loadSession(id) {
                     <div class="ai-content">
                         <button class="msg-delete-btn" title="Delete message">🗑</button>
                         <div class="ai-text">${simpleMarkdown(m.content)}</div>
-                        <div class="upgrade-note">Mode: <strong>${m.model}</strong></div>
+                        ${m.interrupted ? `
+                            <div class="interrupted-note" style="color:#ef4444; font-size:11px; margin-top:8px; display:flex; align-items:center; gap:6px;">
+                                <span style="background:#ef4444; width:5px; height:5px; border-radius:50%;"></span>
+                                Response was interrupted by user
+                                <button class="restart-msg-btn" style="background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.2); color:#ef4444; padding:2px 8px; border-radius:4px; font-size:10px; cursor:pointer; margin-left:8px; font-weight:600;">RESTART</button>
+                            </div>
+                        ` : ''}
+                        <div class="upgrade-note">Mode: <strong>${m.model || 'Llama-3'}</strong></div>
+                        <button class="msg-copy-btn ai" title="Copy Message">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+                        </button>
                     </div>
                 `;
                 row.querySelector('.msg-delete-btn').onclick = async () => {
@@ -933,6 +973,22 @@ async function loadSession(id) {
                         }
                     });
                 };
+
+                const restartBtn = row.querySelector('.restart-msg-btn');
+                if (restartBtn) {
+                    restartBtn.onclick = async () => {
+                        await db.deleteMessage(m.id);
+                        row.remove();
+                        // Remove from the local messages array too
+                        messages = messages.filter(prev => prev.id !== m.id);
+                        // Trigger generation using the remaining history
+                        const aiPlaceholder = appendAIMessage();
+                        askOllama(aiPlaceholder);
+                    };
+                }
+
+                const copyBtn = row.querySelector('.msg-copy-btn');
+                if (copyBtn) copyBtn.onclick = (e) => copyToClipboard(m.content, e.currentTarget);
             }
             fragment.appendChild(row);
         });
