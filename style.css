@@ -16,17 +16,6 @@
 
 html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; overflow: hidden; }
 
-body::before {
-    content: '';
-    position: fixed; inset: 0;
-    pointer-events: none; z-index: 9999;
-    box-shadow:
-        inset 3px 0 40px rgba(59,130,246,0.15),
-        inset -3px 0 40px rgba(59,130,246,0.15),
-        inset 0 -3px 30px rgba(59,130,246,0.12),
-        inset 0 3px 20px rgba(59,130,246,0.05);
-    border: 1px solid rgba(59,130,246,0.18);
-}
 
 /* ── SIDEBAR OVERLAY ─────────────────────── */
 .sidebar-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 200; opacity: 0; pointer-events: none; transition: opacity 0.25s; }
