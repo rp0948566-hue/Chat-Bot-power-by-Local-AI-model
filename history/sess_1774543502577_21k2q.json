@@ -1,0 +1,36 @@
+{
+  "id": "sess_1774543502577_21k2q",
+  "title": "Hi! It's nice to meet you. Is",
+  "model": "instant",
+  "createdAt": "2026-03-26T16:45:02.577Z",
+  "updatedAt": "2026-03-26T16:48:23.812Z",
+  "isPinned": false,
+  "folderId": null,
+  "messages": [
+    {
+      "sessionId": "sess_1774543502577_21k2q",
+      "role": "user",
+      "content": "hello",
+      "model": "instant",
+      "timestamp": "2026-03-26T16:45:02.585Z",
+      "id": 27245
+    },
+    {
+      "sessionId": "sess_1774543502577_21k2q",
+      "role": "assistant",
+      "content": "Hello! It's nice to meet you. Is there something I can help you with, or would you like to chat?",
+      "model": "instant",
+      "timestamp": "2026-03-26T16:45:07.138Z",
+      "id": 27246,
+      "interrupted": false
+    },
+    {
+      "sessionId": "sess_1774543502577_21k2q",
+      "role": "user",
+      "content": "hello i am rudra",
+      "model": "instant",
+      "timestamp": "2026-03-26T16:48:23.800Z",
+      "id": 27247
+    }
+  ]
+}

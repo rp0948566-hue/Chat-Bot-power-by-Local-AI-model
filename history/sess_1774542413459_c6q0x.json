@@ -1,0 +1,45 @@
+{
+  "id": "sess_1774542413459_c6q0x",
+  "title": "Hellonew title",
+  "model": "instant",
+  "createdAt": "2026-03-26T16:26:53.459Z",
+  "updatedAt": "2026-03-26T16:29:03.624Z",
+  "isPinned": false,
+  "folderId": null,
+  "messages": [
+    {
+      "sessionId": "sess_1774542413459_c6q0x",
+      "role": "user",
+      "content": "Hello",
+      "model": "instant",
+      "timestamp": "2026-03-26T16:26:53.492Z",
+      "id": 3
+    },
+    {
+      "sessionId": "sess_1774542413459_c6q0x",
+      "role": "assistant",
+      "content": "Hi! It's nice to meet you. Is there something I can help you with, or would you like to chat?",
+      "model": "instant",
+      "timestamp": "2026-03-26T16:27:33.042Z",
+      "id": 4,
+      "interrupted": false
+    },
+    {
+      "sessionId": "sess_1774542413459_c6q0x",
+      "role": "user",
+      "content": "Second message",
+      "model": "instant",
+      "timestamp": "2026-03-26T16:29:03.598Z",
+      "id": 5
+    },
+    {
+      "sessionId": "sess_1774542413459_c6q0x",
+      "role": "assistant",
+      "content": "I'm happy to continue the conversation!\n\nSo, what's been on your mind lately? Any exciting plans or adventures coming up?",
+      "model": "instant",
+      "timestamp": "2026-03-26T16:29:31.166Z",
+      "id": 6,
+      "interrupted": false
+    }
+  ]
+}

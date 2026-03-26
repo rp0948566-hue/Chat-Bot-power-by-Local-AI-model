@@ -293,14 +293,13 @@
             <h3 id="modal-title">Delete Chat?</h3>
             <p id="modal-text">Are you sure you want to delete this chat session? This action cannot be undone.</p>
             <div class="modal-actions">
-                <button id="modal-cancel-btn" class="modal-btn secondary">Cancel</button>
-                <button id="modal-confirm-btn" class="modal-btn primary">Delete</button>
+                <button id="modal-cancel-btn" class="modal-btn secondary" onclick="event.stopPropagation()">Cancel</button>
+                <button id="modal-confirm-btn" class="modal-btn primary" onclick="event.stopPropagation()">Delete</button>
             </div>
         </div>
     </div>
     <!-- CONTEXT MENU -->
     <div id="chat-context-menu" class="context-menu">
-        <div class="menu-item" id="menu-share"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>Share</div>
         <div class="menu-item" id="menu-rename"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>Rename</div>
         <div class="menu-divider"></div>
         <div class="menu-item" id="menu-pin"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6a3 3 0 0 0-3-3 3 3 0 0 0-3 3v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24z"/></svg>Pin chat</div>

@@ -87,7 +87,10 @@ const chatModelLabel = getEl('chat-model-label');
 const settingsModal  = getEl('settings-modal-overlay');
 const openSettingsBtn = getEl('open-settings-btn');
 const closeSettingsBtn = getEl('settings-close');
-const newChatBtn       = getEl('nav-new-chat-rail'); // Re-mapped to railway icon
+const newChatBtn       = getEl('nav-new-chat-rail');
+const historyPanel   = getEl('history-panel');
+const railHome       = getEl('nav-home');
+const railChat       = getEl('nav-chat');
 
 // ─── Global Constants Dependent on DOM ──────────────────────────────────────
 const modelOptions = document.querySelectorAll('.model-option');
@@ -103,35 +106,44 @@ function showModal({ title, text, confirmText, onConfirm, showInput = false, inp
     if (modalText) modalText.innerText = text;
     if (modalConfirm) modalConfirm.innerText = confirmText || 'Confirm';
 
-    // Support input for Rename
     let inputEl = document.getElementById('modal-input');
-    if (!inputEl && showInput) {
+    if (!inputEl) {
         inputEl = document.createElement('input');
         inputEl.id = 'modal-input';
         inputEl.className = 'modal-input';
         modalText.parentNode.insertBefore(inputEl, modalText.nextSibling);
     }
-    if (inputEl) {
-        inputEl.style.display = showInput ? 'block' : 'none';
+    inputEl.style.display = showInput ? 'block' : 'none';
+    if (showInput) {
         inputEl.value = inputValue;
-        if (showInput) setTimeout(() => inputEl.focus(), 100);
+        setTimeout(() => {
+            inputEl.focus();
+            inputEl.select();
+        }, 100);
     }
+
     modalOverlay.classList.add('active');
     const cleanup = () => {
         modalOverlay.classList.remove('active');
         modalConfirm.onclick = null;
         modalCancel.onclick  = null;
     };
-    modalConfirm.onclick = () => {
-         if (showInput) {
-            onConfirm(inputEl.value);
-        } else {
-            onConfirm();
-        }
-        cleanup();
+    modalConfirm.onclick = (e) => {
+         e.stopPropagation();
+         if (showInput) onConfirm(inputEl.value);
+         else onConfirm();
+         cleanup();
      };
-    modalCancel.onclick  = cleanup;
-    modalOverlay.onclick = (e) => { if (e.target === modalOverlay) cleanup(); };
+    modalCancel.onclick  = (e) => {
+        e.stopPropagation();
+        cleanup();
+    };
+    modalOverlay.onclick = (e) => { 
+        if (e.target === modalOverlay) {
+            e.stopPropagation();
+            cleanup();
+        }
+    };
 }
 
 const tabPanes = document.querySelectorAll('.tab-pane');
@@ -256,8 +268,8 @@ function setActiveModel(key) {
     modelOptions.forEach(opt => opt.classList.toggle('active', opt.dataset.model === key));
 }
 
-const toggleSidebar = () => { sidebar?.classList.toggle('collapsed'); document.querySelector('.main-layout')?.classList.toggle('sidebar-collapsed'); };
-const closeSidebar = () => { sidebar?.classList.add('collapsed'); document.querySelector('.main-layout')?.classList.add('sidebar-collapsed'); };
+const toggleSidebar = () => { sidebar?.classList.toggle('collapsed'); mainLayout?.classList.toggle('sidebar-collapsed'); };
+const closeSidebar = () => { sidebar?.classList.add('collapsed'); mainLayout?.classList.add('sidebar-collapsed'); };
 
 ['global-main-toggle'].forEach(id => getEl(id)?.addEventListener('click', toggleSidebar));
 overlay?.addEventListener('click', closeSidebar);
@@ -388,21 +400,14 @@ async function startNewChat() {
     isGenerating = false;
     
     // Close history panel if open
-    const historyPanel = document.getElementById('history-panel');
-    const mainLayout = document.getElementById('main-layout');
     historyPanel?.classList.remove('active');
     mainLayout?.classList.remove('history-open');
     document.querySelectorAll('.rail-item').forEach(item => item.classList.remove('active'));
-    document.getElementById('nav-home')?.classList.add('active');
+    railHome?.classList.add('active');
 
     switchToHome();
     
     // Clear textareas and reset buttons
-    const homeTA = document.getElementById('home-textarea');
-    const chatTA = document.getElementById('chat-textarea');
-    const homeSendBtn = document.getElementById('home-send-btn');
-    const chatSendBtn = document.getElementById('chat-send-btn');
-    
     if (homeTA) { homeTA.value = ''; homeTA.style.height = 'auto'; }
     if (chatTA) { chatTA.value = ''; chatTA.style.height = 'auto'; }
     if (homeSendBtn) { homeSendBtn.disabled = true; homeSendBtn.classList.remove('active'); }
@@ -617,7 +622,7 @@ function createHistoryItem(session) {
     const div = document.createElement('div');
     div.className = `history-item ${session.id === currentSessionId ? 'active' : ''}`;
     div.dataset.id = session.id;
-    div.onclick = () => { loadSession(session.id); closeSidebar(); };
+    div.onclick = () => { loadSession(session.id); };
     div.innerHTML = `
         <div class="history-item-content">${escapeHtml(session.title)}</div>
         <div class="history-item-actions">
@@ -635,7 +640,7 @@ function createHistoryItem(session) {
 }
 
 let contextSessionId = null;
-const ctxMenu = document.getElementById('chat-context-menu');
+const ctxMenu = getEl('chat-context-menu');
 
 function showContextMenu(sessionId, anchor) {
     contextSessionId = sessionId;
@@ -647,6 +652,38 @@ function showContextMenu(sessionId, anchor) {
     const closeHandler = () => { ctxMenu.classList.remove('active'); ctxMenu.style.display = 'none'; document.removeEventListener('click', closeHandler); };
     setTimeout(() => document.addEventListener('click', closeHandler), 10);
 }
+
+document.getElementById('menu-rename')?.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    ctxMenu.classList.remove('active');
+    ctxMenu.style.display = 'none';
+    if (!contextSessionId) return;
+    const s = await db.getSession(contextSessionId);
+    showModal({
+        title: 'Rename Chat',
+        text: 'Enter a new name for this session:',
+        confirmText: 'Rename',
+        showInput: true,
+        inputValue: s.title,
+        onConfirm: async (newName) => {
+            if (newName) {
+                await db.updateSession(contextSessionId, { title: newName });
+                if (currentSessionId === contextSessionId && chatTitleText) chatTitleText.textContent = newName;
+                renderHistory();
+            }
+        }
+    });
+});
+
+document.getElementById('menu-pin')?.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    ctxMenu.classList.remove('active');
+    ctxMenu.style.display = 'none';
+    if (!contextSessionId) return;
+    const s = await db.getSession(contextSessionId);
+    await db.updateSession(contextSessionId, { isPinned: !s.isPinned });
+    renderHistory();
+});
 
 document.getElementById('menu-delete')?.addEventListener('click', async (e) => {
     e.stopPropagation();
@@ -754,27 +791,52 @@ modelOptions.forEach(opt => opt.addEventListener('click', () => { setActiveModel
 newChatBtn?.addEventListener('click', startNewChat);
 getEl('back-to-home-btn')?.addEventListener('click', startNewChat);
 
-const historyPanel = document.getElementById('history-panel');
-const railHome = document.getElementById('nav-home');
-const railChat = document.getElementById('nav-chat');
-
 function setRailActive(el) {
     document.querySelectorAll('.rail-item').forEach(item => item.classList.remove('active'));
     el?.classList.add('active');
 }
 
-railHome?.addEventListener('click', () => {
+railHome?.addEventListener('click', (e) => {
+    e.stopPropagation();
     setRailActive(railHome);
     historyPanel?.classList.remove('active');
     mainLayout?.classList.remove('history-open');
     switchToHome();
 });
 
-railChat?.addEventListener('click', () => {
+railChat?.addEventListener('click', (e) => {
+    e.stopPropagation();
     setRailActive(railChat);
     historyPanel?.classList.toggle('active');
     mainLayout?.classList.toggle('history-open');
     if (historyPanel?.classList.contains('active')) renderHistory();
+});
+
+// COLLAPSE HISTORY
+document.querySelector('.recents-header')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const header = document.querySelector('.recents-header');
+    header.classList.toggle('collapsed');
+    historyList?.classList.toggle('collapsed');
+    if (!historyList.classList.contains('collapsed')) {
+        historyList.style.maxHeight = historyList.scrollHeight + "px";
+    }
+});
+
+// AUTO-CLOSE PANEL
+document.addEventListener('click', (e) => {
+    const isClickInside = historyPanel?.contains(e.target) || 
+                         railChat?.contains(e.target) || 
+                         ctxMenu?.contains(e.target);
+    const isModalOpen = modalOverlay?.classList.contains('active') || 
+                        settingsModal?.classList.contains('active');
+    
+    if (!isClickInside && !isModalOpen && historyPanel?.classList.contains('active')) {
+        historyPanel.classList.remove('active');
+        mainLayout?.classList.remove('history-open');
+        railChat?.classList.remove('active');
+        railHome?.classList.add('active');
+    }
 });
 
 (async () => {

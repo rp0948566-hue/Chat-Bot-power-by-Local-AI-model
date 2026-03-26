@@ -228,8 +228,6 @@ body::before, body::after {
     letter-spacing: 0.8px;
     cursor: pointer;
     -webkit-user-select: none;
-    -moz-user-select: none;
-    user-select: none;
     transition: color 0.2s;
 }
 .recents-header:hover {
@@ -240,6 +238,20 @@ body::before, body::after {
 }
 .recents-header.collapsed svg {
     transform: rotate(-90deg);
+}
+
+.history-list {
+    transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), 
+                opacity 0.3s ease;
+    overflow: hidden;
+}
+.history-list.collapsed {
+    max-height: 0 !important;
+    opacity: 0;
+    pointer-events: none;
+}
+    -moz-user-select: none;
+    user-select: none;
 }
 .history-list {
     transition: max-height 0.3s ease-out, opacity 0.2s ease;

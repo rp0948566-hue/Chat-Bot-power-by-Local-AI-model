@@ -1,0 +1,19 @@
+{
+  "id": "sess_1774541793860_903ob",
+  "title": "hello",
+  "model": "instant",
+  "createdAt": "2026-03-26T16:16:33.860Z",
+  "updatedAt": "2026-03-26T16:16:33.885Z",
+  "isPinned": false,
+  "folderId": null,
+  "messages": [
+    {
+      "sessionId": "sess_1774541793860_903ob",
+      "role": "user",
+      "content": "hello",
+      "model": "instant",
+      "timestamp": "2026-03-26T16:16:33.881Z",
+      "id": 1
+    }
+  ]
+}
