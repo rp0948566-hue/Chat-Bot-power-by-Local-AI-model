@@ -195,6 +195,20 @@ function bindTextarea(ta, btn) {
         }
     });
 }
+window.toggleUserMsg = (btn) => {
+    const bubble = btn.parentElement;
+    const isShowing = bubble.classList.toggle('expanded');
+    const fullText = bubble.dataset.full;
+    const textEl = bubble.querySelector('.bubble-text');
+    if (isShowing) {
+        textEl.textContent = fullText;
+        btn.textContent = 'Show less';
+    } else {
+        textEl.textContent = fullText.slice(0, 300) + '...';
+        btn.textContent = 'Show more';
+    }
+    scrollBottom();
+};
 bindTextarea(homeTA, homeSendBtn);
 bindTextarea(chatTA, chatSendBtn);
 
@@ -285,7 +299,16 @@ function resetToHome() {
 function appendUserMessage(text, save = true) {
     const row = document.createElement('div');
     row.className = 'message-row user';
-    row.innerHTML = `<div class="user-bubble">${escapeHtml(text)}</div>`;
+    const isLong = text.length > 350;
+    if (isLong) {
+        row.innerHTML = `
+            <div class="user-bubble collapsible" data-full="${escapeHtml(text)}">
+                <span class="bubble-text">${escapeHtml(text.slice(0, 300))}...</span>
+                <button class="show-more-btn" onclick="toggleUserMsg(this)">Show more</button>
+            </div>`;
+    } else {
+        row.innerHTML = `<div class="user-bubble">${escapeHtml(text)}</div>`;
+    }
     messagesArea.appendChild(row);
     scrollBottom();
     
@@ -345,15 +368,16 @@ function finalizeAIMessage(el, fullText, model) {
     el.parentElement.appendChild(actions);
 
     // model note: show which mode was used
+    // model note: show which mode was used
     const m = model || activeModel;
     const modeLabels = { 
-        instant:'Sonnet Instant', thinking:'Sonnet Thinking', 
-        agent: 'Sonnet Agent', search:'Search Mode', code:'Claude Code',
-        scrapling: 'Scrapling Expert', ruflo: 'Ruflo Expert'
+        instant:'Llama-3 Instant', thinking:'Llama-3 Deep Think', 
+        agent: 'Llama-3 Agent Pro', search:'Llama-3 Global Search', code:'Llama-3 Local Code',
+        scrapling: 'Scrapling Local Expert', ruflo: 'Ruflo Local Orchestrator'
     };
     const note = document.createElement('div');
     note.className = 'upgrade-note';
-    note.innerHTML = `Auto-selected <strong>${modeLabels[m] || 'Sonnet Instant'}</strong> mode`;
+    note.innerHTML = `Auto-selected <strong>${modeLabels[m] || 'Llama-3 Instant'}</strong> mode`;
     el.parentElement.appendChild(note);
 }
 
@@ -530,8 +554,16 @@ function simpleMarkdown(text) {
         .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
         .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
         .replace(/`([^`]+)`/g, '<code>$1</code>')
+        .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+        .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+        .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+        .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
         .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
         .replace(/\*(.+?)\*/g, '<em>$1</em>')
+        .replace(/__(.+?)__/g, '<u>$1</u>')
+        .replace(/^---$/gm, '<hr style="opacity:0.1; margin: 16px 0;">')
+        .replace(/^\* (.*$)/gim, '<li>$1</li>')
+        .replace(/\n\n/g, '<br><br>')
         .replace(/\n/g, '<br>');
 }
 
@@ -610,8 +642,48 @@ modelOptions.forEach(opt => {
     });
 });
 
-document.addEventListener('click', () => {
-    modelDropdown.classList.remove('open');
+// ─── SETTINGS MODAL LOGIC ──────────────────────────────────────────────────
+const settingsModal = document.getElementById('settings-modal-overlay');
+const openSettingsBtn = document.getElementById('open-settings-btn');
+const closeSettingsBtn = document.getElementById('settings-close');
+const settingsNavItems = document.querySelectorAll('.settings-nav-item');
+const tabPanes = document.querySelectorAll('.tab-pane');
+
+openSettingsBtn.addEventListener('click', () => {
+    settingsModal.classList.add('active'); // show through CSS active class
+    userPopup.classList.remove('active');
+});
+
+const closeSettings = () => {
+    settingsModal.classList.remove('active');
+};
+
+closeSettingsBtn.addEventListener('click', closeSettings);
+settingsModal.addEventListener('click', (e) => {
+    if (e.target === settingsModal) closeSettings();
+});
+
+// Tab switching logic
+settingsNavItems.forEach(item => {
+    item.addEventListener('click', () => {
+        const tabId = item.dataset.tab;
+        
+        // Update nav UI
+        settingsNavItems.forEach(nav => nav.classList.remove('active'));
+        item.classList.add('active');
+        
+        // Update content UI
+        tabPanes.forEach(pane => pane.classList.remove('active'));
+        const targetPane = document.getElementById(`tab-${tabId}`);
+        if (targetPane) targetPane.classList.add('active');
+    });
+});
+
+// Esc key to close settings
+window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && settingsModal.classList.contains('active')) {
+        closeSettings();
+    }
 });
 
 // Init on load
