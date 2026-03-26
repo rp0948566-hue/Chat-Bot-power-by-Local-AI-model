@@ -11,20 +11,41 @@ let currentAiEl      = null;
 let currentSessionId = null; 
 
 // ── SYSTEM PROMPTS (PhD-Level Phrasing) ──────────────────────────────────────
-const SYSTEM_CORE_REASONS = `
-PERFORMANCE: When writing code, prioritize high-performance libraries (e.g., NumPy).
-MEMORY: Use long-term memory to recognize user context.
-FAST REASONING: Be direct and professional.
+// ── SYSTEM PROMPTS (PhD-Level Computer Use) ──────────────────────────────────
+const COMPUTER_USE_DIRECTIVE = `
+YOU HAVE COMPUTER CONTROL CAPABILITIES.
+To perform an action on the user's laptop, output a JSON block in this exact format:
+\`\`\`action
+{
+  "type": "shell" | "read_file" | "write_file" | "create_dir" | "search_files" | "list_dir" | "open" | "screenshot" | "mouse_move" | "mouse_click" | "type_text" | "key_press",
+  "params": { ... action specific params ... }
+}
+\`\`\`
+Actions you can take:
+- shell: { "command": "cmd" }
+- read_file: { "path": "p" }
+- write_file: { "path": "p", "content": "c" }
+- create_dir: { "path": "p" }
+- search_files: { "pattern": "glob" }
+- list_dir: { "path": "p" }
+- open: { "target": "file/app/url" }
+- screenshot: {}
+- mouse_move: { "x": 0, "y": 0 }
+- mouse_click: { "button": "left" }
+- type_text: { "text": "t" }
+- key_press: { "keys": "k" } (e.g. "^c" for Ctrl+C)
+
+Always proceed step-by-step. If you need to see the screen, take a screenshot first. If you need to find a file, search first.
 `;
 
 const MODEL_PROMPTS = {
-    instant: `You are a Local Intelligence Engine powered by Llama-3.\n${SYSTEM_CORE_REASONS}\nTONE: Warm, professional, and efficient.`,
-    thinking: `You are a Local Intelligence Engine powered by Llama-3, optimized for Deep Thinking.\n${SYSTEM_CORE_REASONS}\nREASONING: Think step-by-step.`,
-    agent: `You are a Local Intelligence Engine powered by Llama-3, acting as a High-Level Agent.\n${SYSTEM_CORE_REASONS}\nPROCESS: Structured and organized.`,
-    code: `You are a Local Intelligence Engine powered by Llama-3, specialized in Software Engineering.\n${SYSTEM_CORE_REASONS}\nSTYLE: Concise and direct.`,
-    search: `You are a highly capable AI assistant optimized for research and information.\n${SYSTEM_CORE_REASONS}\nGUIDELINES: Detailed summaries, tables, and headers.`,
-    scrapling: `You are an expert AI assistant specialized in Scrapling (web scraping framework).\n${SYSTEM_CORE_REASONS}\nShow working Python code examples.`,
-    ruflo: `You are an expert AI assistant specialized in Ruflo (multi-agent orchestration).\n${SYSTEM_CORE_REASONS}\nSuggest optimal agent architectures.`
+    instant: `You are a Local Intelligence Engine with COMPUTER CONTROL.\n${COMPUTER_USE_DIRECTIVE}\nTONE: Warm, professional.`,
+    thinking: `You are a Local Intelligence Engine with COMPUTER CONTROL, optimized for Deep Reasoning.\n${COMPUTER_USE_DIRECTIVE}\nREASONING: Think step-by-step before acting.`,
+    agent: `You are a High-Level Agent with FULL COMPUTER CONTROL.\n${COMPUTER_USE_DIRECTIVE}\nPROCESS: Execute complex multi-step workflows.`,
+    code: `You are a Software Engineering AI with COMPUTER CONTROL.\n${COMPUTER_USE_DIRECTIVE}\nSTYLE: Write, debug, and run code locally.`,
+    search: `You are a research AI with COMPUTER CONTROL.\n${COMPUTER_USE_DIRECTIVE}\nGUIDELINES: Search local files and web for ground truth.`,
+    scrapling: `You are an expert AI specialized in web automation.\n${COMPUTER_USE_DIRECTIVE}\nUse actions to scrape and process data.`,
+    ruflo: `You are a multi-agent orchestrator with COMPUTER CONTROL.\n${COMPUTER_USE_DIRECTIVE}\nCoordinate OS-level tasks via agents.`
 };
 
 let activeModel = localStorage.getItem('active_model') || 'instant';
@@ -278,12 +299,77 @@ async function sendMessage(userText, isQueued = false) {
 
     isGenerating = false;
     
+    // Check for action blocks in final AI response
+    const actionMatch = messages[messages.length - 1].content.match(/```action\n([\s\S]*?)\n```/);
+    if (actionMatch) {
+        try {
+            const action = JSON.parse(actionMatch[1]);
+            await handleAction(action);
+        } catch (e) {
+            console.error('Action parse error:', e);
+        }
+    }
+
     if (messageQueue.length > 0) {
         const nextMsg = messageQueue.shift();
         sendMessage(nextMsg, true);
     } else {
         setGeneratingUI(false);
     }
+}
+
+async function handleAction(action) {
+    const resultArea = appendActionResult('Executing Action...');
+    try {
+        const res = await fetch('http://localhost:3001/api/action', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(action)
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            if (action.type === 'screenshot') {
+                finalizeActionImage(resultArea, data.output);
+                const feedback = `Action: ${action.type} succeeded. Screenshot received.`;
+                messages.push({ role: 'user', content: `[SYSTEM FEEDBACK]: ${feedback}` });
+                sendMessage("I've taken a screenshot. Analyzing it now...", true);
+            } else {
+                finalizeActionResult(resultArea, `Success: ${data.output}`);
+                const feedback = `Action: ${action.type} succeeded. Result: ${data.output}`;
+                messages.push({ role: 'user', content: `[SYSTEM FEEDBACK]: ${feedback}` });
+                sendMessage("Action complete. Continuing...", true);
+            }
+        } else {
+            finalizeActionResult(resultArea, `Error: ${data.error}`, true);
+            const feedback = `Action: ${action.type} failed. Error: ${data.error}`;
+            messages.push({ role: 'user', content: `[SYSTEM FEEDBACK]: ${feedback}` });
+            sendMessage("Action failed. Let me try a different approach...", true);
+        }
+    } catch (e) {
+        finalizeActionResult(resultArea, `Fetch Error: ${e.message}`, true);
+    }
+}
+
+function appendActionResult(text) {
+    const row = document.createElement('div');
+    row.className = 'message-row system-action';
+    row.innerHTML = `<div class="action-status">🔸 ${text}</div><div class="action-body"></div>`;
+    messagesArea?.appendChild(row);
+    scrollBottom();
+    return row;
+}
+
+function finalizeActionResult(el, text, isError = false) {
+    el.querySelector('.action-status').innerHTML = isError ? `❌ Action Failed` : `✔ Action Completed`;
+    el.querySelector('.action-body').innerHTML = `<pre class="terminal-out ${isError ? 'error' : ''}">${escapeHtml(text)}</pre>`;
+    scrollBottom();
+}
+
+function finalizeActionImage(el, base64) {
+    el.querySelector('.action-status').innerHTML = `📸 Screenshot Captured`;
+    el.querySelector('.action-body').innerHTML = `<img src="data:image/png;base64,${base64}" class="action-screenshot" />`;
+    scrollBottom();
 }
 
 async function startNewChat() {

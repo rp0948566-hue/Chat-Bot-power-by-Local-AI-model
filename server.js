@@ -1,0 +1,118 @@
+const express = require('express');
+const cors = require('cors');
+const { exec, spawn } = require('child_process');
+const fs = require('fs').promises;
+const path = require('path');
+const open = require('open');
+const { glob } = require('glob');
+const screenshot = require('screenshot-desktop');
+
+const app = express();
+const port = 3001;
+
+app.use(cors());
+app.use(express.json({ limit: '50mb' }));
+
+// Helper to run shell commands
+const runShell = (cmd) => {
+    return new Promise((resolve, reject) => {
+        exec(cmd, (error, stdout, stderr) => {
+            if (error) {
+                resolve({ success: false, error: stderr || error.message });
+            } else {
+                resolve({ success: true, output: stdout });
+            }
+        });
+    });
+};
+
+// Helper for PowerShell (Better for Windows interaction)
+const runPS = (script) => {
+    return new Promise((resolve) => {
+        const ps = spawn('powershell.exe', ['-Command', script]);
+        let stdout = '';
+        let stderr = '';
+        ps.stdout.on('data', (data) => stdout += data.toString());
+        ps.stderr.on('data', (data) => stderr += data.toString());
+        ps.on('close', () => resolve({ success: !stderr, output: stdout, error: stderr }));
+    });
+};
+
+app.post('/api/action', async (req, res) => {
+    const { type, params } = req.body;
+    console.log(`[ACTION] ${type}`, params);
+
+    try {
+        switch (type) {
+            case 'shell':
+                return res.json(await runShell(params.command));
+
+            case 'read_file':
+                const content = await fs.readFile(params.path, 'utf8');
+                return res.json({ success: true, output: content });
+
+            case 'write_file':
+                await fs.writeFile(params.path, params.content, 'utf8');
+                return res.json({ success: true, output: `File written to ${params.path}` });
+
+            case 'create_dir':
+                await fs.mkdir(params.path, { recursive: true });
+                return res.json({ success: true, output: `Directory created: ${params.path}` });
+
+            case 'search_files':
+                const matches = await glob(params.pattern, { nodir: true });
+                return res.json({ success: true, output: matches.join('\n') });
+
+            case 'list_dir':
+                const files = await fs.readdir(params.path || '.');
+                return res.json({ success: true, output: files.join('\n') });
+
+            case 'open':
+                await open(params.target);
+                return res.json({ success: true, output: `Opened: ${params.target}` });
+
+            case 'screenshot':
+                const img = await screenshot({ format: 'png' });
+                return res.json({ success: true, output: img.toString('base64') });
+
+            case 'mouse_move':
+                // Using PS to move cursor: [Windows.Forms.Cursor]::Position = New-Object Drawing.Point(x, y)
+                await runPS(`[void][System.Reflection.Assembly]::LoadWithPartialName('System.Windows.Forms'); [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point(${params.x}, ${params.y})`);
+                return res.json({ success: true, output: `Moved mouse to ${params.x}, ${params.y}` });
+
+            case 'mouse_click':
+                // Basic left click via PS
+                const clickScript = `
+                    $signature = @'
+                    [DllImport("user32.dll",CharSet=CharSet.Auto, CallingConvention=CallingConvention.StdCall)]
+                    public static extern void mouse_event(long dwFlags, long dx, long dy, long cButtons, long dwExtraInfo);
+'@
+                    $type = Add-Type -MemberDefinition $signature -Name "Win32MouseEvent" -Namespace "Win32" -PassThru
+                    $type::mouse_event(0x0002, 0, 0, 0, 0); # Left down
+                    $type::mouse_event(0x0004, 0, 0, 0, 0); # Left up
+                `;
+                await runPS(clickScript);
+                return res.json({ success: true, output: 'Clicked mouse' });
+
+            case 'type_text':
+                // SendKeys via PS
+                await runPS(`Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('${params.text.replace(/'/g, "''")}')`);
+                return res.json({ success: true, output: `Typed: ${params.text}` });
+
+            case 'key_press':
+                // e.g. "^c" for Ctrl+C
+                await runPS(`Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('${params.keys}')`);
+                return res.json({ success: true, output: `Pressed keys: ${params.keys}` });
+
+            default:
+                res.status(400).json({ success: false, error: 'Unknown action type' });
+        }
+    } catch (err) {
+        console.error(err);
+        res.json({ success: false, error: err.message });
+    }
+});
+
+app.listen(port, () => {
+    console.log(`AI Computer Use Backend running at http://localhost:${port}`);
+});
