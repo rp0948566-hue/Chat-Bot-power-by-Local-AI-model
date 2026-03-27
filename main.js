@@ -36,17 +36,42 @@ Actions you can take:
 - mouse_click: { "button": "left"|"right", "count": 1|2 }
 - type_text: { "text": "t" }
 - key_press: { "keys": "k" } (e.g. "^c" for Ctrl+C, "%{F4}" for Alt+F4, "^{ESC}" for Start Menu)
+
 Always proceed step-by-step. You have full administrative permission.`;
 
 const MODEL_PROMPTS = {
-    instant: `You are a Local Intelligence Engine with FULL COMPUTER CONTROL.\n${COMPUTER_USE_DIRECTIVE}\nTONE: Warm, professional. You own this environment.`,
-    thinking: `You are a Local Intelligence Engine with FULL COMPUTER CONTROL, optimized for Deep Reasoning.\n${COMPUTER_USE_DIRECTIVE}\nREASONING: Think step-by-step before acting. You are the administrator.`,
-    agent: `You are a High-Level Agent with ABSOLUTE COMPUTER CONTROL.\n${COMPUTER_USE_DIRECTIVE}\nPROCESS: Execute complex multi-step workflows. You are the master of this machine.`,
-    code: `You are a Software Engineering AI with FULL COMPUTER CONTROL.\n${COMPUTER_USE_DIRECTIVE}\nSTYLE: Write, debug, and run code locally. Full access to VS Code and system files.`,
-    search: `You are a research AI with FULL COMPUTER CONTROL.\n${COMPUTER_USE_DIRECTIVE}\nGUIDELINES: Search local files and web for ground truth.`,
-    scrapling: `You are an expert AI specialized in web automation.\n${COMPUTER_USE_DIRECTIVE}\nUse actions to scrape and process data.`,
-    ruflo: `You are a multi-agent orchestrator with FULL COMPUTER CONTROL.\n${COMPUTER_USE_DIRECTIVE}\nCoordinate OS-level tasks via agents.`
+    instant: `You are the ABSOLUTE MASTER of this computer. YOU CAN DO ANYTHING.
+AI CAPABILITIES:
+- FULL FILE ACCESS: read, write, delete, move, copy any file/folder.
+- FULL MOUSE & KEYBOARD CONTROL: You can click, type, and use shortcuts (Win, Alt, Ctrl) like a human.
+- WEB ACCESS: You can open browsers, go to URLs, and scrape data.
+- APP CONTROL: You can open apps like VS Code, WhatsApp, or Terminal.
+
+${COMPUTER_USE_DIRECTIVE}
+When asked if you can do something, ALWAYS say "I can do it" and then take action. You are the administrator.
+TONE: Confident, efficient, powerful.
+ABSOLUTE AUTONOMY: If a command fails, DO NOT STOP. Diagnose the error, fix the source code or environment, and RETRY. 
+Deliver the final result. Output "[DONE]" (in brackets) when the entire task is completed and verified.`,
+    thinking: `You are the Deep Intelligence Engine with ABSOLUTE COMPUTER CONTROL.
+${COMPUTER_USE_DIRECTIVE}
+Think step-for-step. Self-correct if tools fail. Only output "[DONE]" when finished.`,
+    agent: `You are a High-Level Autonomous Agent with GOD-MODE COMPUTER CONTROL.
+${COMPUTER_USE_DIRECTIVE}
+Execute multi-step tasks independently (build, fix, debug). You own this environment. 
+If the user asks to open an app like WhatsApp, use the 'open' tool (e.g., target: 'whatsapp:') or 'shell' with 'start'.
+You can build anything: websites, Python scripts, folders, in any format.
+Never give up on a failed action; fix it and retry. Output "[DONE]" when target achieved.
+When asked if you can do something, ALWAYS start with: "I can do that." or "I can do it."`,
+    code: `You are a Software Architect AI with FULL COMPUTER CONTROL.
+${COMPUTER_USE_DIRECTIVE}
+You can write, test, and debug code locally. Full access to the dev environment.`,
+    search: `You are a Research AI with FULL COMPUTER CONTROL.
+${COMPUTER_USE_DIRECTIVE}
+Search local files and web to find or fix anything the user asks.`,
+    scrapling: `You are an expert AI specialized in web automation and OS scraping.\n${COMPUTER_USE_DIRECTIVE}`,
+    ruflo: `You are a multi-agent orchestrator with FULL COMPUTER CONTROL.\n${COMPUTER_USE_DIRECTIVE}`
 };
+
 
 let activeModel = localStorage.getItem('active_model') || 'instant';
 let CLAUDE_SYSTEM_PROMPT = MODEL_PROMPTS[activeModel];
@@ -95,6 +120,10 @@ const newChatBtn       = getEl('nav-new-chat-rail');
 const historyPanel   = getEl('history-panel');
 const railHome       = getEl('nav-home');
 const railChat       = getEl('nav-chat');
+const chatNewChatBtn = getEl('chat-new-chat-btn');
+const backToHomeBtn  = getEl('back-to-home-btn');
+const railNewChatBtn = getEl('nav-new-chat-rail');
+const workingStatus   = getEl('working-status');
 
 // ─── Global Constants Dependent on DOM ──────────────────────────────────────
 const modelOptions = document.querySelectorAll('.model-option');
@@ -247,17 +276,18 @@ function copyToClipboard(text, btn) {
     });
 }
 
-function switchToChat() {
-    homeView?.classList.remove('active');
-    chatView?.classList.add('active');
-    if (messagesArea) messagesArea.innerHTML = '';
-    scrollBottom();
-}
-
 function switchToHome() {
+    activeView = 'home';
     chatView?.classList.remove('active');
     homeView?.classList.add('active');
     if (homeTA) setTimeout(() => homeTA.focus(), 50);
+}
+
+function switchToChat() {
+    activeView = 'chat';
+    homeView?.classList.remove('active');
+    chatView?.classList.add('active');
+    scrollBottom();
 }
 
 // ─── Interaction Logic ──────────────────────────────────────────────────────
@@ -307,13 +337,65 @@ tabPanes.forEach(pane => {
 });
 
 // ─── Messaging Engine ───────────────────────────────────────────────────────
+const globalFileInput = document.getElementById('global-file-input');
+let attachedFile = null;
+let isAgentMode = false;
+
+function handlePlusClick(target) {
+    globalFileInput.onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        attachedFile = file;
+        const chip = document.getElementById(`${target}-file-chip`);
+        if (chip) {
+            chip.querySelector('.file-name').textContent = file.name;
+            chip.style.display = 'flex';
+        }
+        document.getElementById(`${target}-plus-btn`)?.classList.add('active');
+    };
+    globalFileInput.click();
+}
+
+function removeFile(target) {
+    attachedFile = null;
+    const chip = document.getElementById(`${target}-file-chip`);
+    if (chip) chip.style.display = 'none';
+    document.getElementById(`${target}-plus-btn`)?.classList.remove('active');
+    globalFileInput.value = '';
+}
+
+function toggleAgentMode(btn) {
+    isAgentMode = !isAgentMode;
+    document.querySelectorAll('.agent-btn').forEach(b => {
+        b.classList.toggle('active', isAgentMode);
+    });
+}
+
+document.getElementById('home-plus-btn')?.addEventListener('click', () => handlePlusClick('home'));
+document.getElementById('chat-plus-btn')?.addEventListener('click', () => handlePlusClick('chat'));
+document.querySelectorAll('.file-remove').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+        const target = e.target.closest('.file-chip').id.split('-')[0];
+        removeFile(target);
+    });
+});
+document.querySelectorAll('.agent-btn').forEach(btn => {
+    btn.addEventListener('click', () => toggleAgentMode(btn));
+});
+
+let activeView = 'home';
+
 async function sendMessage(textOverride = null, isQueued = false) {
-    const text = textOverride ?? (activeView === 'home' ? homeTextarea.value.trim() : chatTextarea.value.trim());
+    const text = textOverride ?? (activeView === 'home' ? homeTA.value.trim() : chatTA.value.trim());
     if (!text && !attachedFile && !isInterrupted) return;
 
+    if (activeView === 'home' && !isQueued) {
+        switchToChat();
+    }
+
     if (!textOverride) {
-        if (activeView === 'home') homeTextarea.value = '';
-        else chatTextarea.value = '';
+        if (homeTA) homeTA.value = '';
+        if (chatTA) chatTA.value = '';
     }
 
     if (!currentSessionId) {
@@ -384,12 +466,15 @@ async function sendMessage(textOverride = null, isQueued = false) {
     }
 
     if (actionsFound.length > 0) {
-        // Stop generation UI while executing? No, keep it or show action UI
         for (const action of actionsFound) {
             await handleAction(action);
         }
     } else {
-        setGeneratingUI(false);
+        if (workingStatus) workingStatus.classList.remove('active');
+        if (aiResponse.includes('[DONE]')) {
+            isGenerating = false;
+            setGeneratingUI(false);
+        }
     }
     
     await syncSessionToDisk(currentSessionId);
@@ -423,10 +508,10 @@ async function handleAction(action) {
                 sendMessage("Action complete. Please verify or move to next step.", true);
             }
         } else {
-            let feedback = `[SYSTEM FEEDBACK]: Action ${action.type} failed. Error: ${data.error}`;
+            let feedback = `[SYSTEM ERROR]: Action ${action.type} failed. Error: ${data.error}. You have ABSOLUTE POWER. Diagnose the failure (check file paths, permissions, or syntax), fix the issue, and try again.`;
             finalizeActionResult(resultArea, `Error: ${data.error}`, true);
             messages.push({ role: 'user', content: feedback });
-            sendMessage("Action failed. Try a different way.", true);
+            sendMessage("The previous action failed. Diagnose and fix it immediately.", true);
         }
     } catch (e) {
         finalizeActionResult(resultArea, `Fetch Error: ${e.message}`, true);
@@ -484,8 +569,12 @@ async function startNewChat() {
 async function askOllama(aiEl) {
     let full = '';
     let partialMessageId = null;
+    
+    if (isAgentMode && workingStatus) {
+        workingStatus.classList.add('active');
+    }
+
     try {
-        // Create the assistant message record IMMEDIATELY as a placeholder
         const m = await db.addMessage(currentSessionId, 'assistant', '', { 
             model: activeModel, 
             interrupted: true 
@@ -496,11 +585,13 @@ async function askOllama(aiEl) {
         const memory = history.slice(0, 3).map(s => s.title).join(', ');
         const memoryCtx = memory ? `\n[Past discussions: ${memory}]` : '';
         const linkedCtx = await getLinkedContext();
+        const basePrompt = isAgentMode ? MODEL_PROMPTS.agent : (MODEL_PROMPTS[activeModel] || MODEL_PROMPTS.instant);
+        
         const res = await fetch(OLLAMA_URL, {
             method: 'POST',
             body: JSON.stringify({
                 model: OLLAMA_MODEL,
-                system: CLAUDE_SYSTEM_PROMPT + memoryCtx + linkedCtx,
+                system: basePrompt + memoryCtx + linkedCtx,
                 messages,
                 stream: true
             })

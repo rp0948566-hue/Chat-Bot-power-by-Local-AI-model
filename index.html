@@ -92,7 +92,7 @@
                                 <span class="file-name"></span>
                                 <button class="file-remove">&times;</button>
                             </div>
-                            <button class="agent-btn" title="Toggle AI Agent"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/><circle cx="12" cy="16" r="1"/></svg>Agent</button>
+                            <button class="agent-btn" id="home-agent-btn" title="Toggle AI Agent"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>Agent</button>
                         </div>
                     <div class="toolbar-right">
                         <button class="model-btn" id="home-model-btn" title="Select Model" style="position:relative; z-index:50;"><span id="home-model-label">Llama-3 Instant</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></button>
@@ -125,10 +125,14 @@
             <div class="header-center">
                 <div class="chat-area-label">
                     <span class="chat-area-dot"></span>
-                    <span id="chat-title-text">Chat Area</span>
+                    <span id="chat-title-text">Chat Page</span>
+                    <span id="working-status" class="working-status">🔸 Agent Working...</span>
                 </div>
             </div>
             <div class="header-right">
+                <button class="icon-action-btn" id="chat-new-chat-btn" title="Start New Chat">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                </button>
                 <button class="icon-action-btn" title="Share or Actions">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
                 </button>
@@ -149,6 +153,7 @@
                         </div>
                     </div>
                     <div class="toolbar-right">
+                        <button class="agent-btn" id="chat-agent-btn" title="Toggle AI Agent"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>Agent</button>
                         <button class="model-btn" id="chat-model-btn" title="Select Model" style="position:relative; z-index:50;"><span id="chat-model-label">Llama-3 Instant</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></button>
                         <button class="send-btn" id="chat-send-btn" disabled title="Send Message" style="position:relative; z-index:50;">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
