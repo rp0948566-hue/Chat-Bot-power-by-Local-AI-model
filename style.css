@@ -739,18 +739,28 @@ textarea::placeholder { color: var(--muted); }
 .ai-text u { text-decoration-color: rgba(59,130,246,0.5); }
 
 /* ── MODEL DROPDOWN ── */
+/* ── MODEL DROPDOWN ── */
 .model-dropdown {
-    position: fixed; z-index: 500; display: none;
-    background: #1c1c1e; border: 1px solid var(--border);
-    border-radius: 14px; padding: 6px;
-    box-shadow: 0 16px 50px rgba(0,0,0,0.75);
-    min-width: 280px;
-    animation: dropIn 0.15s ease;
+    position: fixed;
+    background: rgba(12, 12, 14, 0.96);
+    -webkit-backdrop-filter: blur(24px);
+    backdrop-filter: blur(24px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    padding: 10px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+    min-width: 240px;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(10px) scale(0.95);
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    z-index: 9999;
 }
-.model-dropdown.open { display: block; }
-@keyframes dropIn {
-    from { opacity: 0; transform: translateY(6px); }
-    to   { opacity: 1; transform: translateY(0); }
+
+.model-dropdown.open {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0) scale(1);
 }
 .model-option {
     padding: 12px 14px; border-radius: 10px; cursor: pointer;

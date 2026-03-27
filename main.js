@@ -451,9 +451,8 @@ async function sendMessage(textOverride = null, isQueued = false) {
     if (messages.length <= 2) generateSessionTitle(currentSessionId, promptForAI, linked);
     isGenerating = false;
 
-    // Agentic Loop: Extract and execute ALL action blocks
-    const aiResponse = messages[messages.length - 1].content;
-    const actionRegex = /```action\s*\n?([\s\S]*?)\n?```/g;
+    // Action detection (support both ```action and <action> style if needed, but stick to ```action for consistency)
+    const actionRegex = /```action\s*([\s\S]*?)\s*```/g;
     let match;
     const actionsFound = [];
     while ((match = actionRegex.exec(aiResponse)) !== null) {
@@ -904,7 +903,7 @@ async function loadSession(id) {
                     <div class="ai-avatar neutral"></div>
                     <div class="ai-content">
                         <div class="ai-text">${simpleMarkdown(m.content)}</div>
-                        <div class="upgrade-note">Mode: <strong>${m.model || 'Llama-3'}</strong></div>
+                        <div class="upgrade-note">Model: <strong>${m.model || 'Local AI'}</strong></div>
                     </div>`;
             }
             fragment.appendChild(row);
