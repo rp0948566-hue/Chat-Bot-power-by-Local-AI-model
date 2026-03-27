@@ -112,6 +112,22 @@ app.post('/api/action', async (req, res) => {
                 await fs.mkdir(params.path, { recursive: true });
                 return res.json({ success: true, output: `Directory created: ${params.path}` });
 
+            case 'delete_file':
+                await fs.rm(params.path, { force: true });
+                return res.json({ success: true, output: `File deleted: ${params.path}` });
+
+            case 'delete_dir':
+                await fs.rm(params.path, { recursive: true, force: true });
+                return res.json({ success: true, output: `Directory deleted: ${params.path}` });
+
+            case 'copy':
+                await fs.cp(params.src, params.dest, { recursive: true });
+                return res.json({ success: true, output: `Copied ${params.src} to ${params.dest}` });
+
+            case 'move':
+                await fs.rename(params.src, params.dest);
+                return res.json({ success: true, output: `Moved ${params.src} to ${params.dest}` });
+
             case 'search_files':
                 const matches = await glob(params.pattern, { nodir: true });
                 return res.json({ success: true, output: matches.join('\n') });
@@ -133,17 +149,19 @@ app.post('/api/action', async (req, res) => {
                 return res.json({ success: true, output: `Moved mouse to ${params.x}, ${params.y}` });
 
             case 'mouse_click':
-                const clickScript = `
-                    $signature = @'
-                    [DllImport("user32.dll",CharSet=CharSet.Auto, CallingConvention=CallingConvention.StdCall)]
-                    public static extern void mouse_event(long dwFlags, long dx, long dy, long cButtons, long dwExtraInfo);
-'@
-                    $type = Add-Type -MemberDefinition $signature -Name "Win32MouseEvent" -Namespace "Win32" -PassThru
-                    $type::mouse_event(0x0002, 0, 0, 0, 0); # Left down
-                    $type::mouse_event(0x0004, 0, 0, 0, 0); # Left up
+                const button = params.button || 'left';
+                const count = params.count || 1;
+                let flags = button === 'right' ? '0x0008, 0x0010' : '0x0002, 0x0004';
+                let script = `
+                    $sig = '[DllImport("user32.dll")] public static extern void mouse_event(int f, int dx, int dy, int c, int e);';
+                    $type = Add-Type -MemberDefinition $sig -Name "Win32Mouse" -Namespace "Win32" -PassThru;
                 `;
-                await runPS(clickScript);
-                return res.json({ success: true, output: 'Clicked mouse' });
+                for(let i=0; i<count; i++) {
+                    script += `$type::mouse_event(${button === 'right' ? '0x0008' : '0x0002'}, 0, 0, 0, 0);`;
+                    script += `$type::mouse_event(${button === 'right' ? '0x0010' : '0x0004'}, 0, 0, 0, 0);`;
+                }
+                await runPS(script);
+                return res.json({ success: true, output: `${count} ${button} click(s) performed` });
 
             case 'type_text':
                 await runPS(`Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('${params.text.replace(/'/g, "''")}')`);

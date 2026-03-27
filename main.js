@@ -11,11 +11,11 @@ let currentAiEl      = null;
 let currentSessionId = null;
 
 // ── SYSTEM PROMPTS (PhD-Level Computer Use) ──────────────────────────────────
-const COMPUTER_USE_DIRECTIVE = `YOU HAVE COMPUTER CONTROL CAPABILITIES.
+const COMPUTER_USE_DIRECTIVE = `YOU HAVE FULL COMPUTER CONTROL CAPABILITIES.
 To perform an action on the user's laptop, output a JSON block in this exact format:
 \`\`\`action
 {
-  "type": "shell" | "read_file" | "write_file" | "create_dir" | "search_files" | "list_dir" | "open" | "screenshot" | "mouse_move" | "mouse_click" | "type_text" | "key_press",
+  "type": "shell" | "read_file" | "write_file" | "create_dir" | "delete_file" | "delete_dir" | "copy" | "move" | "search_files" | "list_dir" | "open" | "screenshot" | "mouse_move" | "mouse_click" | "type_text" | "key_press",
   "params": { ... action specific params ... }
 }
 \`\`\`
@@ -24,24 +24,28 @@ Actions you can take:
 - read_file: { "path": "p" }
 - write_file: { "path": "p", "content": "c" }
 - create_dir: { "path": "p" }
+- delete_file: { "path": "p" }
+- delete_dir: { "path": "p" }
+- copy: { "src": "s", "dest": "d" }
+- move: { "src": "s", "dest": "d" }
 - search_files: { "pattern": "glob" }
 - list_dir: { "path": "p" }
 - open: { "target": "file/app/url" }
 - screenshot: {}
 - mouse_move: { "x": 0, "y": 0 }
-- mouse_click: { "button": "left" }
+- mouse_click: { "button": "left"|"right", "count": 1|2 }
 - type_text: { "text": "t" }
-- key_press: { "keys": "k" } (e.g. "^c" for Ctrl+C)
-Always proceed step-by-step. If you need to see the screen, take a screenshot first. If you need to find a file, search first.`;
+- key_press: { "keys": "k" } (e.g. "^c" for Ctrl+C, "%{F4}" for Alt+F4, "^{ESC}" for Start Menu)
+Always proceed step-by-step. You have full administrative permission.`;
 
 const MODEL_PROMPTS = {
-    instant: `You are a Local Intelligence Engine with COMPUTER CONTROL.\n${COMPUTER_USE_DIRECTIVE}\nTONE: Warm, professional.`,
-    thinking: `You are a Local Intelligence Engine with COMPUTER CONTROL, optimized for Deep Reasoning.\n${COMPUTER_USE_DIRECTIVE}\nREASONING: Think step-by-step before acting.`,
-    agent: `You are a High-Level Agent with FULL COMPUTER CONTROL.\n${COMPUTER_USE_DIRECTIVE}\nPROCESS: Execute complex multi-step workflows.`,
-    code: `You are a Software Engineering AI with COMPUTER CONTROL.\n${COMPUTER_USE_DIRECTIVE}\nSTYLE: Write, debug, and run code locally.`,
-    search: `You are a research AI with COMPUTER CONTROL.\n${COMPUTER_USE_DIRECTIVE}\nGUIDELINES: Search local files and web for ground truth.`,
+    instant: `You are a Local Intelligence Engine with FULL COMPUTER CONTROL.\n${COMPUTER_USE_DIRECTIVE}\nTONE: Warm, professional. You own this environment.`,
+    thinking: `You are a Local Intelligence Engine with FULL COMPUTER CONTROL, optimized for Deep Reasoning.\n${COMPUTER_USE_DIRECTIVE}\nREASONING: Think step-by-step before acting. You are the administrator.`,
+    agent: `You are a High-Level Agent with ABSOLUTE COMPUTER CONTROL.\n${COMPUTER_USE_DIRECTIVE}\nPROCESS: Execute complex multi-step workflows. You are the master of this machine.`,
+    code: `You are a Software Engineering AI with FULL COMPUTER CONTROL.\n${COMPUTER_USE_DIRECTIVE}\nSTYLE: Write, debug, and run code locally. Full access to VS Code and system files.`,
+    search: `You are a research AI with FULL COMPUTER CONTROL.\n${COMPUTER_USE_DIRECTIVE}\nGUIDELINES: Search local files and web for ground truth.`,
     scrapling: `You are an expert AI specialized in web automation.\n${COMPUTER_USE_DIRECTIVE}\nUse actions to scrape and process data.`,
-    ruflo: `You are a multi-agent orchestrator with COMPUTER CONTROL.\n${COMPUTER_USE_DIRECTIVE}\nCoordinate OS-level tasks via agents.`
+    ruflo: `You are a multi-agent orchestrator with FULL COMPUTER CONTROL.\n${COMPUTER_USE_DIRECTIVE}\nCoordinate OS-level tasks via agents.`
 };
 
 let activeModel = localStorage.getItem('active_model') || 'instant';
@@ -303,24 +307,54 @@ tabPanes.forEach(pane => {
 });
 
 // ─── Messaging Engine ───────────────────────────────────────────────────────
-async function sendMessage(userText, isQueued = false) {
-    if (isGenerating && !isQueued) {
-        messageQueue.push(userText);
-        appendUserMessage(userText, true); 
-        return;
+async function sendMessage(textOverride = null, isQueued = false) {
+    const text = textOverride ?? (activeView === 'home' ? homeTextarea.value.trim() : chatTextarea.value.trim());
+    if (!text && !attachedFile && !isInterrupted) return;
+
+    if (!textOverride) {
+        if (activeView === 'home') homeTextarea.value = '';
+        else chatTextarea.value = '';
     }
+
     if (!currentSessionId) {
-        const newSess = await db.createSession(userText.slice(0, 50), activeModel);
-        currentSessionId = newSess.id;
-        db.setMemory('current_session', currentSessionId);
-        renderHistory();
+        currentSessionId = `sess_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+        await db.setMemory('current_session', currentSessionId);
+        switchToChat();
     }
+
+    let promptToDisplay = text;
+    let promptForAI = text;
+    let base64Image = null;
+
+    if (attachedFile) {
+        promptToDisplay = `📎 ${attachedFile.name}\n${text}`;
+        if (attachedFile.type.startsWith('image/')) {
+            base64Image = await new Promise(r => {
+                const reader = new FileReader();
+                reader.onload = () => r(reader.result.split(',')[1]);
+                reader.readAsDataURL(attachedFile);
+            });
+            promptForAI = `[USER UPLOADED IMAGE: ${attachedFile.name}]\n${text}`;
+        } else {
+            const fileText = await new Promise(r => {
+                const reader = new FileReader();
+                reader.onload = () => r(reader.result);
+                reader.readAsText(attachedFile);
+            });
+            promptForAI = `[USER UPLOADED FILE: ${attachedFile.name}]\nFile Content:\n\n${fileText}\n\n${text}`;
+        }
+        removeFile(activeView);
+    }
+
     isGenerating = true;
     setGeneratingUI(true);
-    const modelKey = detectModel(userText);
+    const modelKey = detectModel(promptForAI);
     setActiveModel(modelKey);
-    messages.push({ role: 'user', content: userText });
-    if (!isQueued) appendUserMessage(userText);
+    
+    const msgObj = { role: 'user', content: promptForAI };
+    if (base64Image) msgObj.images = [base64Image];
+    messages.push(msgObj);
+    if (!isQueued) appendUserMessage(promptToDisplay);
     else {
         const lastQueued = messagesArea.querySelector('.message-row.user.queued');
         if (lastQueued) {
@@ -330,30 +364,44 @@ async function sendMessage(userText, isQueued = false) {
     }
     const aiEl = appendAIMessage();
     await askOllama(aiEl);
+    
     const linked = await getLinkedContext();
-    if (messages.length <= 2) generateSessionTitle(currentSessionId, userText, linked);
+    if (messages.length <= 2) generateSessionTitle(currentSessionId, promptForAI, linked);
     isGenerating = false;
-    const actionMatch = messages[messages.length - 1].content.match(/```action\n([\s\S]*?)\n```/);
-    if (actionMatch) {
+
+    // Agentic Loop: Extract and execute ALL action blocks
+    const aiResponse = messages[messages.length - 1].content;
+    const actionRegex = /```action\s*\n?([\s\S]*?)\n?```/g;
+    let match;
+    const actionsFound = [];
+    while ((match = actionRegex.exec(aiResponse)) !== null) {
         try {
-            const action = JSON.parse(actionMatch[1]);
-            await handleAction(action);
+            const action = JSON.parse(match[1]);
+            actionsFound.push(action);
         } catch (e) {
             console.error('Action parse error:', e);
         }
     }
+
+    if (actionsFound.length > 0) {
+        // Stop generation UI while executing? No, keep it or show action UI
+        for (const action of actionsFound) {
+            await handleAction(action);
+        }
+    } else {
+        setGeneratingUI(false);
+    }
+    
     await syncSessionToDisk(currentSessionId);
     await updateAIPersona();
     if (messageQueue.length > 0) {
         const nextMsg = messageQueue.shift();
         sendMessage(nextMsg, true);
-    } else {
-        setGeneratingUI(false);
     }
 }
 
 async function handleAction(action) {
-    const resultArea = appendActionResult('Executing Action...');
+    const resultArea = appendActionResult(`Executing: ${action.type}...`);
     try {
         const res = await fetch('http://localhost:3001/api/action', {
             method: 'POST',
@@ -362,19 +410,23 @@ async function handleAction(action) {
         });
         const data = await res.json();
         if (data.success) {
+            let feedback = `[SYSTEM FEEDBACK]: Action ${action.type} succeeded. ${data.output}`;
             if (action.type === 'screenshot') {
                 finalizeActionImage(resultArea, data.output);
-                messages.push({ role: 'user', content: `[SYSTEM FEEDBACK]: Action: ${action.type} succeeded.` });
-                sendMessage("I've taken a screenshot. Analyzing it now...", true);
+                messages.push({ role: 'user', content: feedback });
+                // Automatically ask AI to analyze screenshot
+                sendMessage("I've taken a screenshot. Analyze it and proceed.", true);
             } else {
                 finalizeActionResult(resultArea, `Success: ${data.output}`);
-                messages.push({ role: 'user', content: `[SYSTEM FEEDBACK]: Action: ${action.type} succeeded.` });
-                sendMessage("Action complete. Continuing...", true);
+                messages.push({ role: 'user', content: feedback });
+                // Automatically ask AI to continue
+                sendMessage("Action complete. Please verify or move to next step.", true);
             }
         } else {
+            let feedback = `[SYSTEM FEEDBACK]: Action ${action.type} failed. Error: ${data.error}`;
             finalizeActionResult(resultArea, `Error: ${data.error}`, true);
-            messages.push({ role: 'user', content: `[SYSTEM FEEDBACK]: Action: ${action.type} failed.` });
-            sendMessage("Action failed. Let me try a different approach...", true);
+            messages.push({ role: 'user', content: feedback });
+            sendMessage("Action failed. Try a different way.", true);
         }
     } catch (e) {
         finalizeActionResult(resultArea, `Fetch Error: ${e.message}`, true);

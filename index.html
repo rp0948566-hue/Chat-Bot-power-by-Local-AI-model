@@ -85,11 +85,15 @@
             <div class="hero-title">TEJAS</div>
             <div class="input-box" id="home-input-box" style="position:relative; z-index:50;">
                 <textarea id="home-textarea" placeholder="Ask away. Pics work too." style="position:relative; z-index:50;"></textarea>
-                <div class="input-toolbar">
-                    <div class="toolbar-left">
-                        <button class="plus-btn" title="Add File or Image"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
-                        <button class="agent-btn" title="Toggle AI Agent"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/><circle cx="12" cy="16" r="1"/></svg>Agent</button>
-                    </div>
+                    <div class="input-toolbar">
+                        <div class="toolbar-left">
+                            <button class="plus-btn" id="home-plus-btn" title="Add File or Image"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+                            <div id="home-file-chip" class="file-chip" style="display:none;">
+                                <span class="file-name"></span>
+                                <button class="file-remove">&times;</button>
+                            </div>
+                            <button class="agent-btn" title="Toggle AI Agent"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/><circle cx="12" cy="16" r="1"/></svg>Agent</button>
+                        </div>
                     <div class="toolbar-right">
                         <button class="model-btn" id="home-model-btn" title="Select Model" style="position:relative; z-index:50;"><span id="home-model-label">Llama-3 Instant</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></button>
                         <button class="send-btn" id="home-send-btn" disabled title="Send Message" style="position:relative; z-index:50;">
@@ -138,7 +142,11 @@
                 <textarea id="chat-textarea" placeholder="Throw me a hard one. I'm ready." style="position:relative; z-index:50;"></textarea>
                 <div class="input-toolbar">
                     <div class="toolbar-left">
-                        <button class="plus-btn" title="Add File"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+                        <button class="plus-btn" id="chat-plus-btn" title="Add File"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+                        <div id="chat-file-chip" class="file-chip" style="display:none;">
+                            <span class="file-name"></span>
+                            <button class="file-remove">&times;</button>
+                        </div>
                     </div>
                     <div class="toolbar-right">
                         <button class="model-btn" id="chat-model-btn" title="Select Model" style="position:relative; z-index:50;"><span id="chat-model-label">Llama-3 Instant</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></button>
@@ -152,6 +160,8 @@
     </div>
 
 </div>
+
+<input type="file" id="global-file-input" style="display:none;">
 
 <!-- ── MODEL DROPDOWN ── -->
 <div class="model-dropdown" id="model-dropdown">
