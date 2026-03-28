@@ -112,29 +112,13 @@ app.post('/api/action', async (req, res) => {
                 await fs.mkdir(params.path, { recursive: true });
                 return res.json({ success: true, output: `Directory created: ${params.path}` });
 
-            case 'delete_file':
-                await fs.rm(params.path, { force: true });
-                return res.json({ success: true, output: `File deleted: ${params.path}` });
-
-            case 'delete_dir':
-                await fs.rm(params.path, { recursive: true, force: true });
-                return res.json({ success: true, output: `Directory deleted: ${params.path}` });
-
-            case 'copy':
-                await fs.cp(params.src, params.dest, { recursive: true });
-                return res.json({ success: true, output: `Copied ${params.src} to ${params.dest}` });
-
-            case 'move':
-                await fs.rename(params.src, params.dest);
-                return res.json({ success: true, output: `Moved ${params.src} to ${params.dest}` });
-
             case 'search_files':
-                const matches = await glob(params.pattern, { nodir: true });
-                return res.json({ success: true, output: matches.join('\n') });
+                const files = await glob(params.pattern);
+                return res.json({ success: true, output: files.join('\n') });
 
             case 'list_dir':
-                const files = await fs.readdir(params.path || '.');
-                return res.json({ success: true, output: files.join('\n') });
+                const dirContents = await fs.readdir(params.path);
+                return res.json({ success: true, output: dirContents.join('\n') });
 
             case 'open':
                 await open(params.target);
@@ -145,23 +129,21 @@ app.post('/api/action', async (req, res) => {
                 return res.json({ success: true, output: img.toString('base64') });
 
             case 'mouse_move':
-                await runPS(`[void][System.Reflection.Assembly]::LoadWithPartialName('System.Windows.Forms'); [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point(${params.x}, ${params.y})`);
-                return res.json({ success: true, output: `Moved mouse to ${params.x}, ${params.y}` });
+                await runPS(`Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point(${params.x}, ${params.y})`);
+                return res.json({ success: true, output: `Mouse moved to (${params.x}, ${params.y})` });
 
             case 'mouse_click':
-                const button = params.button || 'left';
-                const count = params.count || 1;
-                let flags = button === 'right' ? '0x0008, 0x0010' : '0x0002, 0x0004';
-                let script = `
+                const clickCount = params.count || 1;
+                let clickScript = `
                     $sig = '[DllImport("user32.dll")] public static extern void mouse_event(int f, int dx, int dy, int c, int e);';
                     $type = Add-Type -MemberDefinition $sig -Name "Win32Mouse" -Namespace "Win32" -PassThru;
                 `;
-                for(let i=0; i<count; i++) {
-                    script += `$type::mouse_event(${button === 'right' ? '0x0008' : '0x0002'}, 0, 0, 0, 0);`;
-                    script += `$type::mouse_event(${button === 'right' ? '0x0010' : '0x0004'}, 0, 0, 0, 0);`;
+                for(let i=0; i<clickCount; i++) {
+                    clickScript += `$type::mouse_event(${params.button === 'right' ? '0x0008' : '0x0002'}, 0, 0, 0, 0);`;
+                    clickScript += `$type::mouse_event(${params.button === 'right' ? '0x0010' : '0x0004'}, 0, 0, 0, 0);`;
                 }
-                await runPS(script);
-                return res.json({ success: true, output: `${count} ${button} click(s) performed` });
+                await runPS(clickScript);
+                return res.json({ success: true, output: `${clickCount} ${params.button} click(s) performed` });
 
             case 'type_text':
                 await runPS(`Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('${params.text.replace(/'/g, "''")}')`);
@@ -170,6 +152,50 @@ app.post('/api/action', async (req, res) => {
             case 'key_press':
                 await runPS(`Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('${params.keys}')`);
                 return res.json({ success: true, output: `Pressed keys: ${params.keys}` });
+
+            case 'delete_file':
+                await fs.unlink(params.path);
+                return res.json({ success: true, output: `File deleted: ${params.path}` });
+
+            case 'delete_dir':
+                await fs.rm(params.path, { recursive: true, force: true });
+                return res.json({ success: true, output: `Directory deleted: ${params.path}` });
+
+            case 'copy':
+                await fs.cp(params.src, params.dest, { recursive: true });
+                return res.json({ success: true, output: `Copied ${params.src} -> ${params.dest}` });
+
+            case 'move':
+                await fs.rename(params.src, params.dest);
+                return res.json({ success: true, output: `Moved ${params.src} -> ${params.dest}` });
+
+            case 'file_exists':
+                try {
+                    await fs.access(params.path);
+                    return res.json({ success: true, output: `File exists: ${params.path}` });
+                } catch {
+                    return res.json({ success: false, error: `File not found: ${params.path}` });
+                }
+
+            case 'get_system_info':
+                const info = {
+                    platform: process.platform,
+                    arch: process.arch,
+                    node: process.version,
+                    cwd: process.cwd(),
+                    homedir: process.env.HOME || process.env.USERPROFILE || '',
+                    username: process.env.USERNAME || process.env.USER || '',
+                };
+                return res.json({ success: true, output: JSON.stringify(info, null, 2) });
+
+            case 'run_background':
+                const child = spawn(params.command, params.args || [], {
+                    detached: true,
+                    stdio: 'ignore',
+                    shell: true
+                });
+                child.unref();
+                return res.json({ success: true, output: `Process started in background (PID: ${child.pid})` });
 
             default:
                 res.status(400).json({ success: false, error: 'Unknown action type' });

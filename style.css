@@ -989,6 +989,12 @@ input:checked + .slider:before { transform: translateX(20px); }
 .modal-btn {
     padding: 10px 24px; border-radius: 12px; font-size: 14px; font-weight: 600;
     cursor: pointer; border: none; transition: 0.2s;
+
+/* Computer Control Modal Specific Styles */
+#computer-control-modal .modal-content {
+    border-color: rgba(239, 68, 68, 0.3);
+    box-shadow: 0 0 40px rgba(239, 68, 68, 0.1), 0 20px 50px rgba(0,0,0,0.5);
+}
 }
 .modal-btn.secondary { background: rgba(255,255,255,0.05); color: var(--text); }
 .modal-btn.secondary:hover { background: rgba(255,255,255,0.1); }
@@ -1090,10 +1096,10 @@ input:checked + .slider:before { transform: translateX(20px); }
 }
 
 .agent-btn.active {
-    background: rgba(16, 185, 129, 0.1);
-    border-color: #10b981;
-    color: #10b981;
-    box-shadow: 0 0 15px rgba(16, 185, 129, 0.3);
+    background: rgba(255, 191, 0, 0.1);
+    border-color: #ffbf00;
+    color: #ffbf00;
+    box-shadow: 0 0 15px rgba(255, 191, 0, 0.25);
 }
 
 .agent-btn svg {
@@ -1170,4 +1176,227 @@ input:checked + .slider:before { transform: translateX(20px); }
 @keyframes statusPulse {
     0%, 100% { opacity: 0.6; transform: scale(0.98); }
     50% { opacity: 1; transform: scale(1.02); }
+}
+
+/* ── AUTO-APPROVE BUTTON ── */
+.auto-approve-btn {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 7px 12px;
+    border-radius: 100px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--muted);
+    font-size: 12.5px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-family: inherit;
+}
+
+.auto-approve-btn:hover {
+    color: var(--text);
+    background: rgba(255, 255, 255, 0.09);
+}
+
+.auto-approve-btn.active {
+    background: rgba(16, 185, 129, 0.12);
+    border-color: #10b981;
+    color: #10b981;
+    box-shadow: 0 0 12px rgba(16, 185, 129, 0.2);
+}
+
+.auto-approve-btn svg {
+    transition: transform 0.2s ease;
+}
+
+.auto-approve-btn.active svg {
+    transform: scale(1.15);
+}
+
+/* ── TASK PLAN BAR ── */
+.message-row.task-plan {
+    padding: 8px 24px;
+    max-width: 900px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+.task-plan-bar {
+    background: rgba(59, 130, 246, 0.06);
+    border: 1px solid rgba(59, 130, 246, 0.15);
+    border-radius: 12px;
+    padding: 14px 18px;
+    width: 100%;
+}
+
+.task-plan-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.task-plan-icon {
+    font-size: 16px;
+    animation: pulse-dot 1.5s infinite;
+}
+
+.task-plan-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #93c5fd;
+}
+
+.task-plan-progress {
+    height: 4px;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 8px;
+}
+
+.task-plan-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #3b82f6, #818cf8);
+    border-radius: 4px;
+    transition: width 0.4s ease;
+}
+
+.task-plan-fill.complete {
+    background: linear-gradient(90deg, #10b981, #34d399);
+}
+
+.task-plan-status {
+    font-size: 11.5px;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+/* ── APPROVAL REQUEST CARD ── */
+.message-row.approval-request {
+    padding: 8px 24px;
+    max-width: 900px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+.approval-card {
+    background: rgba(245, 158, 11, 0.06);
+    border: 1px solid rgba(245, 158, 11, 0.25);
+    border-radius: 14px;
+    padding: 18px;
+    width: 100%;
+    animation: fadeIn 0.3s ease;
+}
+
+.approval-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.approval-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #f59e0b;
+    letter-spacing: 0.3px;
+}
+
+.approval-body {
+    margin-bottom: 16px;
+}
+
+.approval-desc {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 10px;
+}
+
+.approval-actions-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.approval-action-item {
+    font-size: 13px;
+    color: var(--text);
+    background: rgba(255, 255, 255, 0.04);
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.approval-buttons {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.approval-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.2s ease;
+    font-family: inherit;
+}
+
+.permit-btn {
+    background: rgba(16, 185, 129, 0.12);
+    border-color: rgba(16, 185, 129, 0.3);
+    color: #10b981;
+}
+
+.permit-btn:hover {
+    background: rgba(16, 185, 129, 0.25);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+}
+
+.deny-btn {
+    background: rgba(239, 68, 68, 0.1);
+    border-color: rgba(239, 68, 68, 0.25);
+    color: #ef4444;
+}
+
+.deny-btn:hover {
+    background: rgba(239, 68, 68, 0.2);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.15);
+}
+
+.approval-hint {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.25);
+    text-align: center;
+    font-style: italic;
+}
+
+.approval-status {
+    text-align: center;
+    padding: 10px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.approval-status.approved {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+}
+
+.approval-status.denied {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
 }

@@ -2,42 +2,52 @@
 import { db } from './db.js';
 
 const OLLAMA_URL   = 'http://localhost:11434/api/chat';
-const OLLAMA_MODEL = 'llama3:latest';
+const OLLAMA_MODEL = 'llama3.2:3b';
 
 let messages         = [];
 let isGenerating     = false;
 let messageQueue     = [];
 let currentAiEl      = null;
 let currentSessionId = null;
+let autoApprove      = false;
+let isInterrupted    = false;
+let activeView       = 'home';
+let aiResponse       = '';
+let pendingActions   = [];
+let pendingResolve   = null;
 
 // ── SYSTEM PROMPTS (PhD-Level Computer Use) ──────────────────────────────────
 const COMPUTER_USE_DIRECTIVE = `YOU HAVE FULL COMPUTER CONTROL CAPABILITIES.
-To perform an action on the user's laptop, output a JSON block in this exact format:
+To perform an action on the user's computer, output a JSON block in this exact format:
 \`\`\`action
 {
-  "type": "shell" | "read_file" | "write_file" | "create_dir" | "delete_file" | "delete_dir" | "copy" | "move" | "search_files" | "list_dir" | "open" | "screenshot" | "mouse_move" | "mouse_click" | "type_text" | "key_press",
+  "type": "shell" | "read_file" | "write_file" | "create_dir" | "delete_file" | "delete_dir" | "copy" | "move" | "search_files" | "list_dir" | "open" | "screenshot" | "mouse_move" | "mouse_click" | "type_text" | "key_press" | "file_exists" | "get_system_info" | "run_background",
   "params": { ... action specific params ... }
 }
 \`\`\`
-Actions you can take:
-- shell: { "command": "cmd" }
-- read_file: { "path": "p" }
-- write_file: { "path": "p", "content": "c" }
-- create_dir: { "path": "p" }
-- delete_file: { "path": "p" }
-- delete_dir: { "path": "p" }
-- copy: { "src": "s", "dest": "d" }
-- move: { "src": "s", "dest": "d" }
-- search_files: { "pattern": "glob" }
-- list_dir: { "path": "p" }
+ACTIONS AVAILABLE:
+- shell: { "command": "any terminal command" } — Run ANY command: npm, pip, git, python, node, mkdir, del, etc.
+- read_file: { "path": "file_path" }
+- write_file: { "path": "file_path", "content": "file content in ANY language" }
+- create_dir: { "path": "folder_path" }
+- delete_file: { "path": "file_path" }
+- delete_dir: { "path": "folder_path" }
+- copy: { "src": "source", "dest": "destination" }
+- move: { "src": "source", "dest": "destination" }
+- search_files: { "pattern": "glob_pattern" }
+- list_dir: { "path": "directory_path" }
 - open: { "target": "file/app/url" }
 - screenshot: {}
 - mouse_move: { "x": 0, "y": 0 }
 - mouse_click: { "button": "left"|"right", "count": 1|2 }
-- type_text: { "text": "t" }
-- key_press: { "keys": "k" } (e.g. "^c" for Ctrl+C, "%{F4}" for Alt+F4, "^{ESC}" for Start Menu)
+- type_text: { "text": "text to type" }
+- key_press: { "keys": "keys" } (e.g. "^c" for Ctrl+C, "%{F4}" for Alt+F4)
+- file_exists: { "path": "file_path" }
+- get_system_info: {}
+- run_background: { "command": "cmd", "args": ["arg1"] }
 
-Always proceed step-by-step. You have full administrative permission.`;
+YOU CAN OUTPUT MULTIPLE ACTION BLOCKS in a single response. Execute them sequentially.
+AUTONOMOUS MODE: You can build entire projects without asking. Create files, write code, install packages, run commands, test, debug, fix errors, and deliver the final product. You have FULL PERMISSION to do anything on this computer.`;
 
 const MODEL_PROMPTS = {
     instant: `You are the ABSOLUTE MASTER of this computer. YOU CAN DO ANYTHING.
@@ -46,25 +56,64 @@ AI CAPABILITIES:
 - FULL MOUSE & KEYBOARD CONTROL: You can click, type, and use shortcuts (Win, Alt, Ctrl) like a human.
 - WEB ACCESS: You can open browsers, go to URLs, and scrape data.
 - APP CONTROL: You can open apps like VS Code, WhatsApp, or Terminal.
+- FULL TERMINAL: Run ANY command - npm, pip, git, python, node, etc.
 
 ${COMPUTER_USE_DIRECTIVE}
-When asked if you can do something, ALWAYS say "I can do it" and then take action. You are the administrator.
+
+AUTONOMOUS BUILD MODE: When user asks to build something (website, app, script, etc.):
+1. PLAN: Briefly outline the steps
+2. CREATE: Create all necessary files and folders
+3. CODE: Write complete, working code in any language
+4. INSTALL: Run npm install, pip install, etc. as needed
+5. TEST: Run the code, check for errors
+6. DEBUG: If errors occur, fix them automatically
+7. VERIFY: Take screenshot or test output to confirm it works
+8. DELIVER: Report completion with "[DONE]"
+
+LOCK LAPTOP: When user says "lock laptop", "lock my laptop", "lock screen" — IMMEDIATELY output:
+\`\`\`action
+{"type": "shell", "params": {"command": "python lock_os.py"}}
+\`\`\`
+Do NOT explain steps. Do NOT ask "Are you sure?". Just output the action.
+
+You NEVER need to ask permission for file operations, commands, or code creation.
+When asked if you can do something, ALWAYS say "I can do it" and then TAKE ACTION immediately.
 TONE: Confident, efficient, powerful.
 ABSOLUTE AUTONOMY: If a command fails, DO NOT STOP. Diagnose the error, fix the source code or environment, and RETRY. 
 Deliver the final result. Output "[DONE]" (in brackets) when the entire task is completed and verified.`,
     thinking: `You are the Deep Intelligence Engine with ABSOLUTE COMPUTER CONTROL.
 ${COMPUTER_USE_DIRECTIVE}
-Think step-for-step. Self-correct if tools fail. Only output "[DONE]" when finished.`,
+AUTONOMOUS MODE: Think step-by-step. Create files, write code, run commands, test, debug, and fix automatically. Self-correct if tools fail. Only output "[DONE]" when finished.`,
     agent: `You are a High-Level Autonomous Agent with GOD-MODE COMPUTER CONTROL.
 ${COMPUTER_USE_DIRECTIVE}
-Execute multi-step tasks independently (build, fix, debug). You own this environment. 
+FULL AUTONOMY: Execute multi-step tasks independently. You own this environment.
+- Build websites, apps, scripts in ANY language - Python, JavaScript, HTML/CSS, Java, C++, etc.
+- Create folders, files, organize projects automatically
+- Install dependencies, run builds, test, debug, fix errors
+- Run multiple commands sequentially to complete complex tasks
+- You can work while the user sleeps - build, test, debug, fix, and deliver
+
 If the user asks to open an app like WhatsApp, use the 'open' tool (e.g., target: 'whatsapp:') or 'shell' with 'start'.
 You can build anything: websites, Python scripts, folders, in any format.
+
+LOCK LAPTOP: When user says "lock laptop", "lock my laptop", "lock screen", etc. — IMMEDIATELY output this action:
+\`\`\`action
+{"type": "shell", "params": {"command": "python lock_os.py"}}
+\`\`\`
+Do NOT explain steps. Do NOT ask "Are you sure?". Just output the action. The system handles confirmation.
+
+For shutdown: {"type": "shell", "params": {"command": "shutdown /s /t 0"}}
+For restart: {"type": "shell", "params": {"command": "shutdown /r /t 0"}}
+
 Never give up on a failed action; fix it and retry. Output "[DONE]" when target achieved.
-When asked if you can do something, ALWAYS start with: "I can do that." or "I can do it."`,
+When asked if you can do something, ALWAYS start with: "I can do that." and then output the action immediately.`,
     code: `You are a Software Architect AI with FULL COMPUTER CONTROL.
 ${COMPUTER_USE_DIRECTIVE}
-You can write, test, and debug code locally. Full access to the dev environment.`,
+AUTONOMOUS CODING MODE: You can write, test, and debug code locally. Full access to the dev environment.
+- Create complete projects with proper file structure
+- Write production-quality code in any language
+- Install dependencies, run tests, fix bugs automatically
+- Build and deploy projects end-to-end`,
     search: `You are a Research AI with FULL COMPUTER CONTROL.
 ${COMPUTER_USE_DIRECTIVE}
 Search local files and web to find or fix anything the user asks.`,
@@ -339,19 +388,30 @@ tabPanes.forEach(pane => {
 // ─── Messaging Engine ───────────────────────────────────────────────────────
 const globalFileInput = document.getElementById('global-file-input');
 let attachedFile = null;
-let isAgentMode = false;
+let isAgentMode = true; 
 
+function toggleAgentMode(btn) {
+    isAgentMode = !isAgentMode;
+    localStorage.setItem('is_agent_mode', isAgentMode);
+    document.querySelectorAll('.agent-btn').forEach(b => b.classList.toggle('active', isAgentMode));
+    if (isAgentMode) {
+        if (workingStatus) {
+            workingStatus.classList.add('active');
+            setTimeout(() => workingStatus.classList.remove('active'), 2000); // Pulse on enable
+        }
+    }
+}
 function handlePlusClick(target) {
     globalFileInput.onchange = (e) => {
         const file = e.target.files[0];
         if (!file) return;
         attachedFile = file;
-        const chip = document.getElementById(`${target}-file-chip`);
+        const chip = getEl(`${target}-file-chip`);
         if (chip) {
             chip.querySelector('.file-name').textContent = file.name;
             chip.style.display = 'flex';
         }
-        document.getElementById(`${target}-plus-btn`)?.classList.add('active');
+        getEl(`${target}-plus-btn`)?.classList.add('active');
     };
     globalFileInput.click();
 }
@@ -362,13 +422,6 @@ function removeFile(target) {
     if (chip) chip.style.display = 'none';
     document.getElementById(`${target}-plus-btn`)?.classList.remove('active');
     globalFileInput.value = '';
-}
-
-function toggleAgentMode(btn) {
-    isAgentMode = !isAgentMode;
-    document.querySelectorAll('.agent-btn').forEach(b => {
-        b.classList.toggle('active', isAgentMode);
-    });
 }
 
 document.getElementById('home-plus-btn')?.addEventListener('click', () => handlePlusClick('home'));
@@ -383,11 +436,47 @@ document.querySelectorAll('.agent-btn').forEach(btn => {
     btn.addEventListener('click', () => toggleAgentMode(btn));
 });
 
-let activeView = 'home';
+// ─── Auto-Approve Toggle ──────────────────────────────────────────────────
+function toggleAutoApprove() {
+    autoApprove = !autoApprove;
+    localStorage.setItem('auto_approve', autoApprove);
+    document.querySelectorAll('.auto-approve-btn').forEach(btn => {
+        btn.classList.toggle('active', autoApprove);
+    });
+}
+
+document.querySelectorAll('.auto-approve-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleAutoApprove();
+    });
+});
 
 async function sendMessage(textOverride = null, isQueued = false) {
     const text = textOverride ?? (activeView === 'home' ? homeTA.value.trim() : chatTA.value.trim());
     if (!text && !attachedFile && !isInterrupted) return;
+
+    // Check if user is responding to a pending approval request
+    if (pendingResolve && !isQueued && text) {
+        if (isYesResponse(text)) {
+            appendUserMessage(text);
+            if (homeTA) homeTA.value = '';
+            if (chatTA) chatTA.value = '';
+            // Find and update the approval card UI
+            const approvalCard = messagesArea?.querySelector('.approval-request .approval-buttons');
+            if (approvalCard) approvalCard.innerHTML = '<div class="approval-status approved">✔ Approved via message</div>';
+            pendingResolve(true);
+            return;
+        } else if (isNoResponse(text)) {
+            appendUserMessage(text);
+            if (homeTA) homeTA.value = '';
+            if (chatTA) chatTA.value = '';
+            const approvalCard = messagesArea?.querySelector('.approval-request .approval-buttons');
+            if (approvalCard) approvalCard.innerHTML = '<div class="approval-status denied">✘ Denied via message</div>';
+            pendingResolve(false);
+            return;
+        }
+    }
 
     if (activeView === 'home' && !isQueued) {
         switchToChat();
@@ -434,7 +523,6 @@ async function sendMessage(textOverride = null, isQueued = false) {
     setActiveModel(modelKey);
     
     const msgObj = { role: 'user', content: promptForAI };
-    if (base64Image) msgObj.images = [base64Image];
     messages.push(msgObj);
     if (!isQueued) appendUserMessage(promptToDisplay);
     else {
@@ -451,7 +539,7 @@ async function sendMessage(textOverride = null, isQueued = false) {
     if (messages.length <= 2) generateSessionTitle(currentSessionId, promptForAI, linked);
     isGenerating = false;
 
-    // Action detection (support both ```action and <action> style if needed, but stick to ```action for consistency)
+    // Action detection (support both ```action and <action> style)
     const actionRegex = /```action\s*([\s\S]*?)\s*```/g;
     let match;
     const actionsFound = [];
@@ -465,8 +553,49 @@ async function sendMessage(textOverride = null, isQueued = false) {
     }
 
     if (actionsFound.length > 0) {
-        for (const action of actionsFound) {
-            await handleAction(action);
+        // Separate dangerous actions from safe ones
+        const dangerousActions = actionsFound.filter(a => isDangerousAction(a));
+        const safeActions = actionsFound.filter(a => !isDangerousAction(a));
+
+        // If auto-approve is ON, execute everything immediately
+        if (autoApprove) {
+            const taskPlan = appendTaskPlan(actionsFound.length);
+            for (let i = 0; i < actionsFound.length; i++) {
+                updateTaskPlan(taskPlan, i + 1, actionsFound.length, actionsFound[i].type);
+                await handleAction(actionsFound[i]);
+            }
+            finalizeTaskPlan(taskPlan);
+        } else {
+            // Execute safe actions immediately
+            if (safeActions.length > 0) {
+                const taskPlan = appendTaskPlan(safeActions.length);
+                for (let i = 0; i < safeActions.length; i++) {
+                    updateTaskPlan(taskPlan, i + 1, safeActions.length, safeActions[i].type);
+                    await handleAction(safeActions[i]);
+                }
+                finalizeTaskPlan(taskPlan);
+            }
+
+            // Show approval request for dangerous actions
+            if (dangerousActions.length > 0) {
+                pendingActions = dangerousActions;
+                appendApprovalRequest(dangerousActions);
+                // Wait for user to approve or deny (via button or message)
+                const approved = await waitForApproval();
+                pendingActions = [];
+                pendingResolve = null;
+
+                if (approved) {
+                    const taskPlan = appendTaskPlan(dangerousActions.length);
+                    for (let i = 0; i < dangerousActions.length; i++) {
+                        updateTaskPlan(taskPlan, i + 1, dangerousActions.length, dangerousActions[i].type);
+                        await handleAction(dangerousActions[i]);
+                    }
+                    finalizeTaskPlan(taskPlan);
+                } else {
+                    appendActionResult('Action cancelled by user.');
+                }
+            }
         }
     } else {
         if (workingStatus) workingStatus.classList.remove('active');
@@ -486,6 +615,7 @@ async function sendMessage(textOverride = null, isQueued = false) {
 
 async function handleAction(action) {
     const resultArea = appendActionResult(`Executing: ${action.type}...`);
+    
     try {
         const res = await fetch('http://localhost:3001/api/action', {
             method: 'POST',
@@ -498,24 +628,26 @@ async function handleAction(action) {
             if (action.type === 'screenshot') {
                 finalizeActionImage(resultArea, data.output);
                 messages.push({ role: 'user', content: feedback });
-                // Automatically ask AI to analyze screenshot
                 sendMessage("I've taken a screenshot. Analyze it and proceed.", true);
             } else {
                 finalizeActionResult(resultArea, `Success: ${data.output}`);
                 messages.push({ role: 'user', content: feedback });
-                // Automatically ask AI to continue
-                sendMessage("Action complete. Please verify or move to next step.", true);
+                sendMessage("Action complete. Continue to next step or verify result.", true);
             }
         } else {
-            let feedback = `[SYSTEM ERROR]: Action ${action.type} failed. Error: ${data.error}. You have ABSOLUTE POWER. Diagnose the failure (check file paths, permissions, or syntax), fix the issue, and try again.`;
+            let feedback = `[SYSTEM ERROR]: Action ${action.type} failed. Error: ${data.error}. Diagnose the failure (check file paths, permissions, or syntax), fix the issue, and try again.`;
             finalizeActionResult(resultArea, `Error: ${data.error}`, true);
             messages.push({ role: 'user', content: feedback });
             sendMessage("The previous action failed. Diagnose and fix it immediately.", true);
         }
     } catch (e) {
         finalizeActionResult(resultArea, `Fetch Error: ${e.message}`, true);
+        messages.push({ role: 'user', content: `[SYSTEM ERROR]: Network error: ${e.message}. Retry the action.` });
+        sendMessage("Network error occurred. Retry the failed action.", true);
     }
 }
+
+
 
 function appendActionResult(text) {
     const row = document.createElement('div');
@@ -538,11 +670,138 @@ function finalizeActionImage(el, base64) {
     scrollBottom();
 }
 
+function appendTaskPlan(totalActions) {
+    const row = document.createElement('div');
+    row.className = 'message-row task-plan';
+    row.innerHTML = `
+        <div class="task-plan-bar">
+            <div class="task-plan-header">
+                <span class="task-plan-icon">⚡</span>
+                <span class="task-plan-title">Executing ${totalActions} action(s)...</span>
+            </div>
+            <div class="task-plan-progress">
+                <div class="task-plan-fill" style="width: 0%"></div>
+            </div>
+            <div class="task-plan-status">Starting...</div>
+        </div>`;
+    messagesArea?.appendChild(row);
+    scrollBottom();
+    return row;
+}
+
+function updateTaskPlan(row, current, total, actionType) {
+    const pct = Math.round((current / total) * 100);
+    const fill = row.querySelector('.task-plan-fill');
+    const status = row.querySelector('.task-plan-status');
+    if (fill) fill.style.width = pct + '%';
+    if (status) status.textContent = `Step ${current}/${total}: ${actionType}`;
+    scrollBottom();
+}
+
+function finalizeTaskPlan(row) {
+    const fill = row.querySelector('.task-plan-fill');
+    const status = row.querySelector('.task-plan-status');
+    const title = row.querySelector('.task-plan-title');
+    if (fill) { fill.style.width = '100%'; fill.classList.add('complete'); }
+    if (status) status.textContent = 'All actions completed';
+    if (title) title.textContent = 'Task Complete';
+    scrollBottom();
+}
+
+// ─── Dangerous Action Detection & In-Chat Approval ────────────────────────
+const DANGEROUS_COMMANDS = ['lock', 'shutdown', 'restart', 'rm -rf', 'rmdir /s', 'format', 'del /f', 'erase'];
+const DANGEROUS_ACTION_TYPES = ['delete_file', 'delete_dir'];
+
+function isDangerousAction(action) {
+    if (DANGEROUS_ACTION_TYPES.includes(action.type)) return true;
+    if (action.type === 'shell' && action.params?.command) {
+        const cmd = action.params.command.toLowerCase();
+        return DANGEROUS_COMMANDS.some(dc => cmd.includes(dc));
+    }
+    return false;
+}
+
+function getActionDescription(action) {
+    const cmd = action.params?.command || '';
+    if (cmd.includes('lock_os') || cmd.includes('LockWorkStation')) return '🔒 Lock Laptop';
+    if (cmd.includes('shutdown /s')) return '🔴 Shutdown Computer';
+    if (cmd.includes('shutdown /r')) return '🔄 Restart Computer';
+    if (action.type === 'delete_file') return `🗑️ Delete File: ${action.params?.path || ''}`;
+    if (action.type === 'delete_dir') return `🗑️ Delete Folder: ${action.params?.path || ''}`;
+    if (action.type === 'shell') return `💻 Run: ${cmd.substring(0, 60)}`;
+    return `${action.type}`;
+}
+
+function appendApprovalRequest(actions) {
+    const row = document.createElement('div');
+    row.className = 'message-row approval-request';
+    const actionDescs = actions.map(a => `<div class="approval-action-item">${getActionDescription(a)}</div>`).join('');
+    
+    row.innerHTML = `
+        <div class="approval-card">
+            <div class="approval-header">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><path d="M12 9v4m0 4h.01M10.29 3.86l-8.6 14.86A2 2 0 0 0 3.42 22h17.16a2 2 0 0 0 1.73-3.28l-8.6-14.86a2 2 0 0 0-3.46 0z"/></svg>
+                <span class="approval-title">Permission Required</span>
+            </div>
+            <div class="approval-body">
+                <p class="approval-desc">AI wants to perform ${actions.length} action(s):</p>
+                <div class="approval-actions-list">${actionDescs}</div>
+            </div>
+            <div class="approval-buttons">
+                <button class="approval-btn permit-btn" id="approval-permit-btn">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                    Permit
+                </button>
+                <button class="approval-btn deny-btn" id="approval-deny-btn">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    Not Permit
+                </button>
+            </div>
+            <div class="approval-hint">Or type "yes" / "no" in the chat</div>
+        </div>`;
+    
+    messagesArea?.appendChild(row);
+    scrollBottom();
+
+    // Bind buttons
+    row.querySelector('#approval-permit-btn')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        row.querySelector('.approval-buttons').innerHTML = '<div class="approval-status approved">✔ Approved</div>';
+        if (pendingResolve) pendingResolve(true);
+    });
+    row.querySelector('#approval-deny-btn')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        row.querySelector('.approval-buttons').innerHTML = '<div class="approval-status denied">✘ Denied</div>';
+        if (pendingResolve) pendingResolve(false);
+    });
+}
+
+function waitForApproval() {
+    return new Promise((resolve) => {
+        pendingResolve = resolve;
+    });
+}
+
+function isYesResponse(text) {
+    const t = text.trim().toLowerCase();
+    return ['yes', 'y', 'yeah', 'yep', 'sure', 'ok', 'okay', 'do it', 'go ahead', 'proceed', 'permit', 'allow', 'approve', 'confirm', 'go for it', 'lets do it', "let's do it", 'do that', 'affirmative'].some(w => t === w || t.startsWith(w + ' ') || t.endsWith(' ' + w));
+}
+
+function isNoResponse(text) {
+    const t = text.trim().toLowerCase();
+    return ['no', 'n', 'nope', 'nah', 'cancel', 'stop', "don't", 'dont', 'deny', 'not permit', 'not allowed', 'reject', 'abort', 'negative', 'no way'].some(w => t === w || t.startsWith(w + ' ') || t.endsWith(' ' + w));
+}
+
 async function startNewChat() {
     currentSessionId = null;
     messages = [];
     messageQueue = [];
     isGenerating = false;
+    autoApprove = false;
+    aiResponse = '';
+    isInterrupted = false;
+    pendingActions = [];
+    pendingResolve = null;
     
     // Close history panel if open
     historyPanel?.classList.remove('active');
@@ -621,6 +880,7 @@ async function askOllama(aiEl) {
         }
         await db.updateMessage(partialMessageId, { content: full, interrupted: false });
         messages.push({ role: 'assistant', content: full });
+        aiResponse = full;
         finalizeAIMessage(aiEl, full, activeModel);
         await syncSessionToDisk(currentSessionId);
     } catch (e) {
@@ -1023,6 +1283,26 @@ document.addEventListener('click', (e) => {
 (async () => {
     try {
         await updateAIPersona();
+        
+        // Initial Always-On check (Defaults to true if never set)
+        const savedAgentMode = localStorage.getItem('is_agent_mode');
+        isAgentMode = savedAgentMode === null ? true : savedAgentMode === 'true';
+
+        // Sync Always-On Agent UI
+        if (isAgentMode) {
+            getEl('home-agent-btn')?.classList.add('active');
+            getEl('chat-agent-btn')?.classList.add('active');
+        }
+
+        // Load auto-approve state
+        const savedAutoApprove = localStorage.getItem('auto_approve');
+        autoApprove = savedAutoApprove === 'true';
+        if (autoApprove) {
+            document.querySelectorAll('.auto-approve-btn').forEach(btn => {
+                btn.classList.add('active');
+            });
+        }
+
         const last = await db.getMemory('current_session');
         if (last) {
             await loadSession(last);
