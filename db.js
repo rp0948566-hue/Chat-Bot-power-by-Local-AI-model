@@ -153,10 +153,11 @@ class ChatDB {
         // Also update session title from first user message
         if (role === 'user') {
             const session = await this.getSession(sessionId);
+            const m = extra.model || (session ? session.model : 'instant');
             if (session && session.title === 'New Chat') {
-                await this.updateSession(sessionId, { title: 'New Chat...', model });
-            } else {
-                await this.updateSession(sessionId, { model });
+                await this.updateSession(sessionId, { title: 'New Chat...', model: m });
+            } else if (session) {
+                await this.updateSession(sessionId, { model: m });
             }
         }
         return { ...msg, id };
@@ -240,6 +241,53 @@ class ChatDB {
                     .objectStore(STORES.memory).get(key)
         );
         return rec?.value ?? null;
+    }
+
+    // ── Cross-Session Memory for AI Context ───────────────────────────
+
+    async getRecentContext(limit = 30) {
+        await this._ready;
+        const msgs = await this.getAllMessages(limit);
+        return msgs.map(m => `[${m.role}]: ${m.content.substring(0, 300)}`).join('\n');
+    }
+
+    async getMemoryKeys() {
+        await this._ready;
+        return new Promise((resolve, reject) => {
+            const tx = this._db.transaction(STORES.memory, 'readonly');
+            const store = tx.objectStore(STORES.memory);
+            const req = store.getAll();
+            req.onsuccess = () => resolve(req.result || []);
+            req.onerror = () => reject(req.error);
+        });
+    }
+
+    async importSession(sessionData) {
+        await this._ready;
+        const { messages: msgs, ...session } = sessionData;
+        if (!session.id) return;
+        const existing = await this.getSession(session.id);
+        if (!existing) {
+            await this._req(
+                this._db.transaction(STORES.sessions, 'readwrite')
+                        .objectStore(STORES.sessions).put(session)
+            );
+        }
+        if (msgs && msgs.length > 0) {
+            const existingMsgs = await this.getMessages(session.id);
+            const existingIds = new Set(existingMsgs.map(m => m.id));
+            const tx = this._db.transaction(STORES.messages, 'readwrite');
+            const store = tx.objectStore(STORES.messages);
+            for (const m of msgs) {
+                if (!existingIds.has(m.id)) {
+                    store.put(m);
+                }
+            }
+            return new Promise((res, rej) => {
+                tx.oncomplete = res;
+                tx.onerror = () => rej(tx.error);
+            });
+        }
     }
 
     // ── Export ────────────────────────────────────────────────────────────

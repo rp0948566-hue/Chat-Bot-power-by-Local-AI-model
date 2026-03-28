@@ -54,7 +54,22 @@
             </div>
         </div>
     </div>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
+        const supabaseUrl = 'https://jkcafihelumneqdtssax.supabase.co';
+        const supabaseAnonKey = 'sb_publishable_-l_UuuLa5videlhibeLK_g_JjqtGXFY';
+        const supabaseClient = supabase.createClient(supabaseUrl, supabaseAnonKey);
+
+        document.querySelector('.google-btn').addEventListener('click', async () => {
+            const { data, error } = await supabaseClient.auth.signInWithOAuth({
+                provider: 'google',
+                options: {
+                    redirectTo: window.location.origin + '/'
+                }
+            });
+            if (error) console.error('Login error:', error.message);
+        });
+
         document.querySelector('.guest-btn').addEventListener('click', () => { window.location.href = '/'; });
     </script>
 </body>

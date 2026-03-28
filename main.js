@@ -1,8 +1,9 @@
 // ─── State & Intelligence Configuration ──────────────────────────────────────
 import { db } from './db.js';
+import { supabase } from './supabase.js';
 
 const OLLAMA_URL   = 'http://localhost:11434/api/chat';
-const OLLAMA_MODEL = 'llama3.2:3b';
+const OLLAMA_MODEL = 'llama3';
 
 let messages         = [];
 let isGenerating     = false;
@@ -16,7 +17,43 @@ let aiResponse       = '';
 let pendingActions   = [];
 let pendingResolve   = null;
 
-// ── SYSTEM PROMPTS (PhD-Level Computer Use) ──────────────────────────────────
+// ── USER PROFILE (Permanent Identity) ─────────────────────────────────────────
+let USER_PROFILE = {
+    name: 'Rudra Pratap Singh',
+    shortName: 'Rudra',
+    dateOfBirth: '2009/08/08',
+    birthYear: 2009,
+    birthMonth: 8,
+    birthDay: 8,
+    timezone: 'Asia/Kolkata',
+};
+
+function getUserAge() {
+    const now = new Date();
+    const dob = new Date(USER_PROFILE.birthYear, USER_PROFILE.birthMonth - 1, USER_PROFILE.birthDay);
+    let age = now.getFullYear() - dob.getFullYear();
+    const m = now.getMonth() - dob.getMonth();
+    if (m < 0 || (m === 0 && now.getDate() < dob.getDate())) age--;
+    return age;
+}
+
+function getUserProfileBlock() {
+    const age = getUserAge();
+    return `
+[PERMANENT USER IDENTITY - NEVER FORGET THIS]:
+- Full Name: ${USER_PROFILE.name}
+- Called: ${USER_PROFILE.shortName}
+- Date of Birth: ${USER_PROFILE.dateOfBirth}
+- Current Age: ${age} years old
+- Timezone: ${USER_PROFILE.timezone}
+- You are Rudra's PERSONAL AI ASSISTANT. You know him personally.
+- Always refer to him by name when appropriate (Rudra or Rudra Pratap Singh).
+- Remember everything about Rudra - his preferences, projects, conversations, habits.
+- You have access to ALL past conversations and can recall any detail.
+- Treat every interaction as if you are Rudra's dedicated personal assistant who never forgets.`;
+}
+
+// ── SYSTEM PROMPTS (Personal Assistant for Rudra Pratap Singh) ──────────────────
 const COMPUTER_USE_DIRECTIVE = `YOU HAVE FULL COMPUTER CONTROL CAPABILITIES.
 To perform an action on the user's computer, output a JSON block in this exact format:
 \`\`\`action
@@ -50,17 +87,26 @@ YOU CAN OUTPUT MULTIPLE ACTION BLOCKS in a single response. Execute them sequent
 AUTONOMOUS MODE: You can build entire projects without asking. Create files, write code, install packages, run commands, test, debug, fix errors, and deliver the final product. You have FULL PERMISSION to do anything on this computer.`;
 
 const MODEL_PROMPTS = {
-    instant: `You are the ABSOLUTE MASTER of this computer. YOU CAN DO ANYTHING.
-AI CAPABILITIES:
+    instant: `You are Rudra Pratap Singh's PERSONAL AI ASSISTANT. You know him well and remember everything about him.
+${getUserProfileBlock()}
+
+YOU CAN DO ANYTHING for Rudra:
 - FULL FILE ACCESS: read, write, delete, move, copy any file/folder.
-- FULL MOUSE & KEYBOARD CONTROL: You can click, type, and use shortcuts (Win, Alt, Ctrl) like a human.
-- WEB ACCESS: You can open browsers, go to URLs, and scrape data.
-- APP CONTROL: You can open apps like VS Code, WhatsApp, or Terminal.
+- FULL MOUSE & KEYBOARD CONTROL: Click, type, shortcuts (Win, Alt, Ctrl) like a human.
+- WEB ACCESS: Open browsers, go to URLs, scrape data.
+- APP CONTROL: Open apps like VS Code, WhatsApp, Terminal.
 - FULL TERMINAL: Run ANY command - npm, pip, git, python, node, etc.
 
 ${COMPUTER_USE_DIRECTIVE}
 
-AUTONOMOUS BUILD MODE: When user asks to build something (website, app, script, etc.):
+PERSONAL ASSISTANT MODE:
+- Always address Rudra by his name when greeting or confirming actions.
+- Remember what Rudra has worked on before and reference it.
+- Proactively suggest things based on past conversations and patterns.
+- If Rudra asks "do you remember..." - check your memory and recall details from all past chats.
+- Be warm but efficient. You are his trusted personal assistant.
+
+AUTONOMOUS BUILD MODE: When Rudra asks to build something:
 1. PLAN: Briefly outline the steps
 2. CREATE: Create all necessary files and folders
 3. CODE: Write complete, working code in any language
@@ -70,55 +116,57 @@ AUTONOMOUS BUILD MODE: When user asks to build something (website, app, script, 
 7. VERIFY: Take screenshot or test output to confirm it works
 8. DELIVER: Report completion with "[DONE]"
 
-LOCK LAPTOP: When user says "lock laptop", "lock my laptop", "lock screen" — IMMEDIATELY output:
+LOCK LAPTOP: When Rudra says "lock laptop", "lock my laptop", "lock screen" — IMMEDIATELY output:
 \`\`\`action
 {"type": "shell", "params": {"command": "python lock_os.py"}}
 \`\`\`
-Do NOT explain steps. Do NOT ask "Are you sure?". Just output the action.
 
 You NEVER need to ask permission for file operations, commands, or code creation.
-When asked if you can do something, ALWAYS say "I can do it" and then TAKE ACTION immediately.
-TONE: Confident, efficient, powerful.
-ABSOLUTE AUTONOMY: If a command fails, DO NOT STOP. Diagnose the error, fix the source code or environment, and RETRY. 
-Deliver the final result. Output "[DONE]" (in brackets) when the entire task is completed and verified.`,
-    thinking: `You are the Deep Intelligence Engine with ABSOLUTE COMPUTER CONTROL.
+TONE: Confident, efficient, personal. You are Rudra's AI.
+ABSOLUTE AUTONOMY: If a command fails, DO NOT STOP. Diagnose, fix, and RETRY.
+Deliver the final result. Output "[DONE]" when the entire task is completed and verified.`,
+    thinking: `You are Rudra Pratap Singh's Deep Intelligence Engine - his personal thinking assistant.
+${getUserProfileBlock()}
 ${COMPUTER_USE_DIRECTIVE}
-AUTONOMOUS MODE: Think step-by-step. Create files, write code, run commands, test, debug, and fix automatically. Self-correct if tools fail. Only output "[DONE]" when finished.`,
-    agent: `You are a High-Level Autonomous Agent with GOD-MODE COMPUTER CONTROL.
+Think step-by-step for Rudra. Create files, write code, run commands, test, debug, and fix automatically. Self-correct if tools fail. Only output "[DONE]" when finished.`,
+    agent: `You are Rudra Pratap Singh's High-Level Autonomous Agent - his personal AI that never forgets.
+${getUserProfileBlock()}
 ${COMPUTER_USE_DIRECTIVE}
-FULL AUTONOMY: Execute multi-step tasks independently. You own this environment.
+FULL AUTONOMY: Execute multi-step tasks independently for Rudra. You own this environment.
 - Build websites, apps, scripts in ANY language - Python, JavaScript, HTML/CSS, Java, C++, etc.
 - Create folders, files, organize projects automatically
 - Install dependencies, run builds, test, debug, fix errors
 - Run multiple commands sequentially to complete complex tasks
-- You can work while the user sleeps - build, test, debug, fix, and deliver
+- You can work while Rudra sleeps - build, test, debug, fix, and deliver
+- REMEMBER: Every project Rudra works on, every preference, every conversation.
 
-If the user asks to open an app like WhatsApp, use the 'open' tool (e.g., target: 'whatsapp:') or 'shell' with 'start'.
-You can build anything: websites, Python scripts, folders, in any format.
+If Rudra asks to open an app like WhatsApp, use the 'open' tool (e.g., target: 'whatsapp:') or 'shell' with 'start'.
 
-LOCK LAPTOP: When user says "lock laptop", "lock my laptop", "lock screen", etc. — IMMEDIATELY output this action:
+LOCK LAPTOP: When Rudra says "lock laptop", "lock my laptop", "lock screen" — IMMEDIATELY output:
 \`\`\`action
 {"type": "shell", "params": {"command": "python lock_os.py"}}
 \`\`\`
-Do NOT explain steps. Do NOT ask "Are you sure?". Just output the action. The system handles confirmation.
 
 For shutdown: {"type": "shell", "params": {"command": "shutdown /s /t 0"}}
 For restart: {"type": "shell", "params": {"command": "shutdown /r /t 0"}}
 
 Never give up on a failed action; fix it and retry. Output "[DONE]" when target achieved.
-When asked if you can do something, ALWAYS start with: "I can do that." and then output the action immediately.`,
-    code: `You are a Software Architect AI with FULL COMPUTER CONTROL.
+When asked if you can do something, ALWAYS start with: "I can do that, Rudra." and then output the action immediately.`,
+    code: `You are Rudra Pratap Singh's Software Architect AI - his personal coding assistant.
+${getUserProfileBlock()}
 ${COMPUTER_USE_DIRECTIVE}
-AUTONOMOUS CODING MODE: You can write, test, and debug code locally. Full access to the dev environment.
+AUTONOMOUS CODING MODE for Rudra: Write, test, and debug code locally.
 - Create complete projects with proper file structure
 - Write production-quality code in any language
 - Install dependencies, run tests, fix bugs automatically
-- Build and deploy projects end-to-end`,
-    search: `You are a Research AI with FULL COMPUTER CONTROL.
+- Build and deploy projects end-to-end
+- Remember all of Rudra's coding preferences and past projects`,
+    search: `You are Rudra Pratap Singh's Research AI - his personal search assistant.
+${getUserProfileBlock()}
 ${COMPUTER_USE_DIRECTIVE}
-Search local files and web to find or fix anything the user asks.`,
-    scrapling: `You are an expert AI specialized in web automation and OS scraping.\n${COMPUTER_USE_DIRECTIVE}`,
-    ruflo: `You are a multi-agent orchestrator with FULL COMPUTER CONTROL.\n${COMPUTER_USE_DIRECTIVE}`
+Search local files and web to find or fix anything Rudra asks. Remember all research for future reference.`,
+    scrapling: `You are Rudra Pratap Singh's web automation expert AI.\n${getUserProfileBlock()}\n${COMPUTER_USE_DIRECTIVE}`,
+    ruflo: `You are Rudra Pratap Singh's multi-agent orchestrator AI.\n${getUserProfileBlock()}\n${COMPUTER_USE_DIRECTIVE}`
 };
 
 
@@ -127,14 +175,23 @@ let CLAUDE_SYSTEM_PROMPT = MODEL_PROMPTS[activeModel];
 
 async function getLinkedContext() {
     const linked = await db.getMemory('linked_accounts') || {};
+    const age = getUserAge();
     let context = '\n[USER PROFILE INTELLIGENCE]:';
+    context += `\n- FULL NAME: ${USER_PROFILE.name} (call him ${USER_PROFILE.shortName})`;
+    context += `\n- DATE OF BIRTH: ${USER_PROFILE.dateOfBirth} (Age: ${age})`;
+    context += `\n- TIMEZONE: ${USER_PROFILE.timezone}`;
     if (linked.github_data) {
         const d = linked.github_data;
-        context += `\n- GITHUB: User @${d.login} (${d.name || 'User'}). Bio: ${d.bio || 'Professional'}.`;
+        context += `\n- GITHUB: @${d.login} (${d.name || 'User'}). Bio: ${d.bio || 'Professional'}.`;
         context += `\n- REPOS: ${d.public_repos} total. Recent projects: ${d.repos.map(r => `${r.name} (${r.lang || 'Code'})`).join(', ')}.`;
     }
     if (linked.linkedin) {
-        context += `\n- LINKEDIN: Professional profile at ${linked.linkedin}. Focus on career growth and networking.`;
+        context += `\n- LINKEDIN: Professional profile at ${linked.linkedin}.`;
+    }
+    // Include any additional stored user info
+    const extraInfo = await db.getMemory('user_preferences');
+    if (extraInfo) {
+        context += `\n- PREFERENCES: ${JSON.stringify(extraInfo)}`;
     }
     return context + '\n';
 }
@@ -488,8 +545,8 @@ async function sendMessage(textOverride = null, isQueued = false) {
     }
 
     if (!currentSessionId) {
-        currentSessionId = `sess_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
-        await db.setMemory('current_session', currentSessionId);
+        const session = await db.createSession('New Chat', activeModel);
+        currentSessionId = session.id;
         switchToChat();
     }
 
@@ -839,9 +896,12 @@ async function askOllama(aiEl) {
         });
         partialMessageId = m.id;
 
-        const history = await db.getAllSessions();
-        const memory = history.slice(0, 3).map(s => s.title).join(', ');
-        const memoryCtx = memory ? `\n[Past discussions: ${memory}]` : '';
+        // Build rich memory context from ALL past conversations
+        const allSessions = await db.getAllSessions();
+        const recentTitles = allSessions.slice(0, 10).map(s => s.title).join(', ');
+        const recentCtx = await db.getRecentContext(40);
+        const memoryCtx = recentTitles ? `\n[CHAT HISTORY MEMORY - You remember these past discussions: ${recentTitles}]` : '';
+        const pastMsgCtx = recentCtx ? `\n[RECENT CONVERSATIONS CONTEXT]:\n${recentCtx.substring(0, 3000)}\n` : '';
         const linkedCtx = await getLinkedContext();
         const basePrompt = isAgentMode ? MODEL_PROMPTS.agent : (MODEL_PROMPTS[activeModel] || MODEL_PROMPTS.instant);
         
@@ -849,7 +909,7 @@ async function askOllama(aiEl) {
             method: 'POST',
             body: JSON.stringify({
                 model: OLLAMA_MODEL,
-                system: basePrompt + memoryCtx + linkedCtx,
+                system: basePrompt + memoryCtx + pastMsgCtx + linkedCtx,
                 messages,
                 stream: true
             })
@@ -1034,23 +1094,53 @@ async function syncSessionToDisk(sessionId) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id: sessionId, data: { ...session, messages: msgs } })
         });
+        // Also persist global AI memory to disk
+        await saveGlobalMemory();
     } catch (e) { console.error('Disk sync failed:', e); }
+}
+
+async function saveGlobalMemory() {
+    try {
+        const sessions = await db.getAllSessions();
+        const allMsgs = await db.getAllMessages(100);
+        const memoryData = {
+            sessions: sessions.map(s => ({ id: s.id, title: s.title, updatedAt: s.updatedAt })),
+            recentMessages: allMsgs.slice(-50).map(m => ({ role: m.role, content: m.content.substring(0, 500), sessionId: m.sessionId, timestamp: m.timestamp })),
+            lastUpdated: new Date().toISOString()
+        };
+        await db.setMemory('global_memory', memoryData);
+        await fetch('http://localhost:3001/api/save_session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: '_global_memory', data: memoryData })
+        });
+    } catch (e) { /* silent fail for memory save */ }
 }
 
 async function renderHistory() {
     if (!historyList) return;
-    const sessions = await db.getAllSessions();
-    sessions.sort((a, b) => {
-        if (a.isPinned && !b.isPinned) return -1;
-        if (!a.isPinned && b.isPinned) return 1;
-        return (b.updatedAt || 0) - (a.updatedAt || 0);
-    });
-    historyList.innerHTML = '';
-    sessions.forEach(s => {
-        historyList.appendChild(createHistoryItem(s));
-    });
-    if (!historyList.classList.contains('collapsed')) {
-        historyList.style.maxHeight = historyList.scrollHeight + "px";
+    try {
+        const sessions = await db.getAllSessions();
+        sessions.sort((a, b) => {
+            if (a.isPinned && !b.isPinned) return -1;
+            if (!a.isPinned && b.isPinned) return 1;
+            return (b.updatedAt || 0) - (a.updatedAt || 0);
+        });
+        historyList.innerHTML = '';
+        sessions.forEach(s => {
+            historyList.appendChild(createHistoryItem(s));
+        });
+        // If the history list is not collapsed, update its maxHeight to fit the content
+        if (!historyList.classList.contains('collapsed')) {
+            historyList.style.maxHeight = historyList.scrollHeight + "px";
+        }
+    } catch (error) {
+        console.error('Error rendering history:', error);
+        historyList.innerHTML = '<div class="error-message">Failed to load chat history</div>';
+        // If not collapsed, set maxHeight based on error message height
+        if (!historyList.classList.contains('collapsed')) {
+            historyList.style.maxHeight = historyList.scrollHeight + "px";
+        }
     }
 }
 
@@ -1182,12 +1272,46 @@ async function loadSession(id) {
 
 async function updateAIPersona() {
     const sessions = await db.getAllSessions();
-    const recentSummaries = sessions.slice(0, 5).map(s => s.title).join(', ');
-    let pattern = sessions.length > 5 ? `\n[USER PATTERNS]: Recently discusses: ${recentSummaries}.` : '';
-    CLAUDE_SYSTEM_PROMPT = MODEL_PROMPTS[activeModel] + pattern;
+    const recentSummaries = sessions.slice(0, 10).map(s => s.title).join(', ');
+    const recentCtx = await db.getRecentContext(40);
+    let profile = getUserProfileBlock();
+    let pattern = sessions.length > 0 ? `\n[USER PATTERNS]: Rudra recently discusses: ${recentSummaries}.` : '';
+    let msgPattern = recentCtx ? `\n[PAST CONVERSATION MEMORY]:\n${recentCtx.substring(0, 2000)}` : '';
+    CLAUDE_SYSTEM_PROMPT = MODEL_PROMPTS[activeModel] + profile + pattern + msgPattern;
 }
 
 // ─── Initialization ──────────────────────────────────────────────────────────
+
+async function syncDiskToIndexedDB() {
+    try {
+        const res = await fetch('http://localhost:3001/api/load_all_sessions');
+        const data = await res.json();
+        if (data.success && data.output) {
+            for (const sessionData of data.output) {
+                await db.importSession(sessionData);
+            }
+            console.log(`Synced ${data.output.length} sessions from disk to IndexedDB`);
+        }
+        // Also load global memory
+        const memRes = await fetch('http://localhost:3001/api/global_memory');
+        const memData = await memRes.json();
+        if (memData.success && memData.output) {
+            await db.setMemory('global_memory', memData.output);
+            console.log('Global memory restored from disk');
+        }
+        // Load user profile from disk
+        try {
+            const profRes = await fetch('http://localhost:3001/api/global_memory?id=_user_profile');
+            const profData = await profRes.json();
+            if (profData.success && profData.output) {
+                await db.setMemory('user_profile', profData.output);
+                console.log('User profile restored from disk');
+            }
+        } catch {}
+    } catch (e) {
+        console.warn('Disk sync skipped (server may be offline):', e.message);
+    }
+}
 function bindTA(ta, btn) {
     ta?.addEventListener('input', () => {
         ta.style.height = 'auto';
@@ -1232,6 +1356,10 @@ modelOptions.forEach(opt => opt.addEventListener('click', () => { setActiveModel
 newChatBtn?.addEventListener('click', startNewChat);
 getEl('back-to-home-btn')?.addEventListener('click', startNewChat);
 
+popupLoginBtn?.addEventListener('click', () => {
+    window.location.href = '/login/';
+});
+
 function setRailActive(el) {
     document.querySelectorAll('.rail-item').forEach(item => item.classList.remove('active'));
     el?.classList.add('active');
@@ -1250,7 +1378,12 @@ railChat?.addEventListener('click', (e) => {
     setRailActive(railChat);
     historyPanel?.classList.toggle('active');
     mainLayout?.classList.toggle('history-open');
-    if (historyPanel?.classList.contains('active')) renderHistory();
+    if (historyPanel?.classList.contains('active')) {
+        // Wait for the next frame to ensure panel is fully rendered
+        requestAnimationFrame(() => {
+            renderHistory();
+        });
+    }
 });
 
 // COLLAPSE HISTORY
@@ -1282,6 +1415,28 @@ document.addEventListener('click', (e) => {
 
 (async () => {
     try {
+        // ─── Sync Supabase session & Dynamic Profile ─────────────────────────
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+            const u = session.user;
+            USER_PROFILE.name = u.user_metadata.full_name || u.email;
+            USER_PROFILE.shortName = USER_PROFILE.name.split(' ')[0];
+            console.log('Authenticated via Supabase:', USER_PROFILE.name);
+        }
+
+        // Save user profile permanently to IndexedDB and disk
+        await db.setMemory('user_profile', USER_PROFILE);
+        try {
+            await fetch('http://localhost:3001/api/save_session', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: '_user_profile', data: USER_PROFILE })
+            });
+        } catch {}
+
+        // Load all persisted sessions from disk into IndexedDB first
+        await syncDiskToIndexedDB();
+        
         await updateAIPersona();
         
         // Initial Always-On check (Defaults to true if never set)

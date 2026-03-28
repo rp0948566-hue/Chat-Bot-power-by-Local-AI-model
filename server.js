@@ -69,7 +69,7 @@ app.get('/api/load_all_sessions', async (req, res) => {
     try {
         const files = await fs.readdir(HISTORY_DIR);
         const sessions = await Promise.all(
-            files.filter(f => f.endsWith('.json')).map(async f => {
+            files.filter(f => f.endsWith('.json') && !f.startsWith('_')).map(async f => {
                 const content = await fs.readFile(path.join(HISTORY_DIR, f), 'utf8');
                 return JSON.parse(content);
             })
@@ -88,6 +88,46 @@ app.delete('/api/delete_session/:id', async (req, res) => {
         res.json({ success: true, output: `Session ${id} deleted.` });
     } catch (err) {
         res.json({ success: false, error: err.message });
+    }
+});
+
+app.get('/api/global_memory', async (req, res) => {
+    try {
+        const filePath = path.join(HISTORY_DIR, '_global_memory.json');
+        const content = await fs.readFile(filePath, 'utf8');
+        res.json({ success: true, output: JSON.parse(content) });
+    } catch (err) {
+        res.json({ success: true, output: null });
+    }
+});
+
+app.get('/api/search_sessions', async (req, res) => {
+    const query = (req.query.q || '').toLowerCase();
+    if (!query) return res.json({ success: true, output: [] });
+    try {
+        const files = await fs.readdir(HISTORY_DIR);
+        const results = [];
+        for (const f of files.filter(f => f.endsWith('.json'))) {
+            const content = await fs.readFile(path.join(HISTORY_DIR, f), 'utf8');
+            const data = JSON.parse(content);
+            const titleMatch = data.title && data.title.toLowerCase().includes(query);
+            const msgMatches = (data.messages || []).filter(m => m.content && m.content.toLowerCase().includes(query));
+            if (titleMatch || msgMatches.length > 0) {
+                results.push({
+                    sessionId: data.id,
+                    title: data.title,
+                    titleMatch,
+                    matchingMessages: msgMatches.slice(0, 5).map(m => ({
+                        role: m.role,
+                        content: m.content.substring(0, 200),
+                        timestamp: m.timestamp
+                    }))
+                });
+            }
+        }
+        res.json({ success: true, output: results });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
     }
 });
 
