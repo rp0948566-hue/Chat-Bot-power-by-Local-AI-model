@@ -1,0 +1,41 @@
+{
+  "sessions": [
+    {
+      "id": "sess_1775582454399_xx8n7",
+      "title": "New Chat...",
+      "updatedAt": "2026-04-07T17:20:54.414Z"
+    },
+    {
+      "id": "sess_1775563305366_daim9",
+      "title": "New Chat...",
+      "updatedAt": "2026-04-07T12:01:45.381Z"
+    }
+  ],
+  "recentMessages": [
+    {
+      "role": "user",
+      "content": "Hello",
+      "sessionId": "sess_1775563305366_daim9",
+      "timestamp": "2026-04-07T12:01:45.380Z"
+    },
+    {
+      "role": "assistant",
+      "content": "",
+      "sessionId": "sess_1775563305366_daim9",
+      "timestamp": "2026-04-07T12:01:45.380Z"
+    },
+    {
+      "role": "user",
+      "content": "hello",
+      "sessionId": "sess_1775582454399_xx8n7",
+      "timestamp": "2026-04-07T17:20:54.412Z"
+    },
+    {
+      "role": "assistant",
+      "content": "Hello! How can I assist you today?",
+      "sessionId": "sess_1775582454399_xx8n7",
+      "timestamp": "2026-04-07T17:20:54.412Z"
+    }
+  ],
+  "lastUpdated": "2026-04-07T17:20:56.882Z"
+}

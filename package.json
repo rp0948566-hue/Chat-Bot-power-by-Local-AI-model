@@ -1,0 +1,25 @@
+{
+  "name": "local-ai-mode-chat",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev:frontend": "vite",
+    "dev:backend": "node server.js",
+    "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.100.1",
+    "concurrently": "^9.2.1",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "glob": "^13.0.6",
+    "open": "^11.0.0",
+    "screenshot-desktop": "^1.15.3"
+  },
+  "devDependencies": {
+    "vite": "^8.0.1"
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "id": "sess_1775563305366_daim9",
+  "title": "New Chat...",
+  "model": "instant",
+  "createdAt": "2026-04-07T12:01:45.366Z",
+  "updatedAt": "2026-04-07T12:01:45.381Z",
+  "isPinned": false,
+  "folderId": null,
+  "messages": [
+    {
+      "sessionId": "sess_1775563305366_daim9",
+      "role": "user",
+      "content": "Hello",
+      "timestamp": "2026-04-07T12:01:45.380Z",
+      "model": "instant",
+      "id": 1
+    },
+    {
+      "sessionId": "sess_1775563305366_daim9",
+      "role": "assistant",
+      "content": "",
+      "timestamp": "2026-04-07T12:01:45.380Z",
+      "model": "instant",
+      "interrupted": false,
+      "id": 2
+    }
+  ]
+}

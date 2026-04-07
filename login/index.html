@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login | Kimi</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="login-container">
+        <!-- LEFT PANEL -->
+        <div class="login-left">
+            <div class="login-header">
+                <h1>Welcome back</h1>
+                <p>Build Full-Stack Web & Mobile Apps in minutes</p>
+            </div>
+
+            <div class="login-methods">
+                <button class="google-btn" title="Continue with Google">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><line x1="12" y1="12" x2="16" y2="12"/></svg>
+                    Continue with Google
+                </button>
+
+                <div class="social-icons">
+                    <button class="icon-social" title="Continue with GitHub"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg></button>
+                    <button class="icon-social" title="Continue with Other"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20.94c1.97 0 3.06-1.12 3.06-2.73 0-1.61-1.09-2.73-3.06-2.73H9.9v5.46h2.1zm-2.1-7.23V8.25h1.94c1.86 0 2.87 1 2.87 2.46s-1 2.47-2.87 2.47H9.9z"/></svg></button>
+                    <button class="icon-social" title="Continue with Facebook"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg></button>
+                </div>
+
+                <div class="divider"><span>OR</span></div>
+
+                <button class="email-btn" title="Continue with Email">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                    Continue with Email
+                </button>
+
+                <p class="signup-text">Don't have an account? <a href="#">Sign up</a></p>
+            </div>
+
+            <button class="guest-btn" title="Enter as Guest">CONTINUE AS GUEST</button>
+        </div>
+
+        <!-- RIGHT PANEL -->
+        <div class="login-right">
+            <div class="preview-card">
+                <div class="preview-title">तेजस</div>
+                <div class="preview-input">Assign a task or ask anything</div>
+                <div class="preview-footer">
+                    <div class="pill"></div><div class="pill"></div><div class="pill"></div><div class="pill"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        const supabaseUrl = 'https://jkcafihelumneqdtssax.supabase.co';
+        const supabaseAnonKey = 'sb_publishable_-l_UuuLa5videlhibeLK_g_JjqtGXFY';
+        const supabaseClient = supabase.createClient(supabaseUrl, supabaseAnonKey);
+
+        document.querySelector('.google-btn').addEventListener('click', async () => {
+            const { data, error } = await supabaseClient.auth.signInWithOAuth({
+                provider: 'google',
+                options: {
+                    redirectTo: window.location.origin + '/'
+                }
+            });
+            if (error) console.error('Login error:', error.message);
+        });
+
+        document.querySelector('.guest-btn').addEventListener('click', () => { window.location.href = '/'; });
+    </script>
+</body>
+</html>
