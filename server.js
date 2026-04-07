@@ -237,6 +237,13 @@ app.post('/api/action', async (req, res) => {
                 child.unref();
                 return res.json({ success: true, output: `Process started in background (PID: ${child.pid})` });
 
+            case 'webview':
+                return res.json({ success: true, output: params.url });
+
+            case 'preview':
+                const previewPath = path.isAbsolute(params.path) ? params.path : path.join(__dirname, params.path);
+                return res.json({ success: true, output: `http://localhost:${port}/preview?file=${encodeURIComponent(previewPath)}` });
+
             default:
                 res.status(400).json({ success: false, error: 'Unknown action type' });
         }
@@ -248,4 +255,16 @@ app.post('/api/action', async (req, res) => {
 
 app.listen(port, () => {
     console.log(`AI Computer Use Backend running at http://localhost:${port}`);
+});
+
+// Preview endpoint to serve local HTML files
+app.get('/preview', async (req, res) => {
+    const filePath = req.query.file;
+    if (!filePath) return res.status(400).send('No file specified');
+    try {
+        const content = await fs.readFile(filePath, 'utf8');
+        res.send(content);
+    } catch (err) {
+        res.status(404).send('File not found: ' + err.message);
+    }
 });

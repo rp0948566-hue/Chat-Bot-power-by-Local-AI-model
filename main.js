@@ -58,7 +58,7 @@ const COMPUTER_USE_DIRECTIVE = `YOU HAVE FULL COMPUTER CONTROL CAPABILITIES.
 To perform an action on the user's computer, output a JSON block in this exact format:
 \`\`\`action
 {
-  "type": "shell" | "read_file" | "write_file" | "create_dir" | "delete_file" | "delete_dir" | "copy" | "move" | "search_files" | "list_dir" | "open" | "screenshot" | "mouse_move" | "mouse_click" | "type_text" | "key_press" | "file_exists" | "get_system_info" | "run_background",
+  "type": "shell" | "read_file" | "write_file" | "create_dir" | "delete_file" | "delete_dir" | "copy" | "move" | "search_files" | "list_dir" | "open" | "screenshot" | "webview" | "preview" | "mouse_move" | "mouse_click" | "type_text" | "key_press" | "file_exists" | "get_system_info" | "run_background",
   "params": { ... action specific params ... }
 }
 \`\`\`
@@ -73,7 +73,9 @@ ACTIONS AVAILABLE:
 - move: { "src": "source", "dest": "destination" }
 - search_files: { "pattern": "glob_pattern" }
 - list_dir: { "path": "directory_path" }
-- open: { "target": "file/app/url" }
+- open: { "target": "file/app/url" } — Opens in system browser
+- webview: { "url": "https://..." } — Shows webpage INSIDE the chat (embedded preview)
+- preview: { "path": "index.html" } — Renders a local HTML file in the chat as embedded webview
 - screenshot: {}
 - mouse_move: { "x": 0, "y": 0 }
 - mouse_click: { "button": "left"|"right", "count": 1|2 }
@@ -84,7 +86,8 @@ ACTIONS AVAILABLE:
 - run_background: { "command": "cmd", "args": ["arg1"] }
 
 YOU CAN OUTPUT MULTIPLE ACTION BLOCKS in a single response. Execute them sequentially.
-AUTONOMOUS MODE: You can build entire projects without asking. Create files, write code, install packages, run commands, test, debug, fix errors, and deliver the final product. You have FULL PERMISSION to do anything on this computer.`;
+AUTONOMOUS MODE: You can build entire projects without asking. Create files, write code, install packages, run commands, test, debug, fix errors, and deliver the final product. You have FULL PERMISSION to do anything on this computer.
+IMPORTANT: When building websites/apps, ALWAYS use 'preview' action to show the result to user in the chat embed. Use 'open' only when user explicitly asks to open in system browser.
 
 const MODEL_PROMPTS = {
     agent: `You are Rudra Pratap Singh's High-Level Autonomous Agent - his personal AI that never forgets.
@@ -623,6 +626,10 @@ async function handleAction(action) {
                 finalizeActionImage(resultArea, data.output);
                 messages.push({ role: 'user', content: feedback });
                 sendMessage("I've taken a screenshot. Analyze it and proceed.", true);
+            } else if (action.type === 'webview' || action.type === 'preview') {
+                finalizeActionWebview(resultArea, data.output);
+                messages.push({ role: 'user', content: feedback });
+                sendMessage("Webview displayed. Analyze and proceed or tell user the result.", true);
             } else {
                 finalizeActionResult(resultArea, `Success: ${data.output}`);
                 messages.push({ role: 'user', content: feedback });
@@ -661,6 +668,12 @@ function finalizeActionResult(el, text, isError = false) {
 function finalizeActionImage(el, base64) {
     el.querySelector('.action-status').innerHTML = `📸 Screenshot Captured`;
     el.querySelector('.action-body').innerHTML = `<img src="data:image/png;base64,${base64}" class="action-screenshot" />`;
+    scrollBottom();
+}
+
+function finalizeActionWebview(el, url) {
+    el.querySelector('.action-status').innerHTML = `🌐 Webview Opened`;
+    el.querySelector('.action-body').innerHTML = `<iframe src="${url}" class="action-webview" sandbox="allow-scripts allow-same-origin"></iframe>`;
     scrollBottom();
 }
 
@@ -722,6 +735,8 @@ function getActionDescription(action) {
     if (cmd.includes('shutdown /r')) return '🔄 Restart Computer';
     if (action.type === 'delete_file') return `🗑️ Delete File: ${action.params?.path || ''}`;
     if (action.type === 'delete_dir') return `🗑️ Delete Folder: ${action.params?.path || ''}`;
+    if (action.type === 'webview') return `🌐 Open Webview: ${action.params?.url || ''}`;
+    if (action.type === 'preview') return `📄 Preview HTML: ${action.params?.path || ''}`;
     if (action.type === 'shell') return `💻 Run: ${cmd.substring(0, 60)}`;
     return `${action.type}`;
 }

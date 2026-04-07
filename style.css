@@ -944,6 +944,15 @@ input:checked + .slider:before { transform: translateX(20px); }
     background: #000;
 }
 
+.action-webview {
+    display: block;
+    width: 100%;
+    height: 500px;
+    border: none;
+    border-radius: 8px;
+    background: #fff;
+}
+
 /* Custom Scrollbar for Terminal */
 .terminal-out::-webkit-scrollbar { width: 6px; }
 .terminal-out::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
