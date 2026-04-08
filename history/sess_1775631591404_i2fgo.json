@@ -1,0 +1,28 @@
+{
+  "id": "sess_1775631591404_i2fgo",
+  "title": "New Chat...",
+  "model": "agent",
+  "createdAt": "2026-04-08T06:59:51.404Z",
+  "updatedAt": "2026-04-08T06:59:51.428Z",
+  "isPinned": false,
+  "folderId": null,
+  "messages": [
+    {
+      "sessionId": "sess_1775631591404_i2fgo",
+      "role": "user",
+      "content": "hello",
+      "timestamp": "2026-04-08T06:59:51.427Z",
+      "model": "agent",
+      "id": 31
+    },
+    {
+      "sessionId": "sess_1775631591404_i2fgo",
+      "role": "assistant",
+      "content": "Hello! How can I assist you today?",
+      "timestamp": "2026-04-08T06:59:51.427Z",
+      "model": "agent",
+      "interrupted": false,
+      "id": 32
+    }
+  ]
+}

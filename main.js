@@ -452,6 +452,14 @@ function switchToChat() {
     homeView?.classList.remove('active');
     chatView?.classList.add('active');
     scrollBottom();
+    // Focus the chat textarea and trigger input event to update button state
+    if (chatTA) {
+        setTimeout(() => {
+            chatTA.focus();
+            // Trigger input event to ensure button state is correct
+            chatTA.dispatchEvent(new Event('input', { bubbles: true }));
+        }, 50);
+    }
 }
 
 // ─── Interaction Logic ──────────────────────────────────────────────────────
@@ -588,10 +596,13 @@ async function sendMessage(textOverride = null, isQueued = false) {
     }
 
     if (activeView === 'home' && !isQueued) {
+        // Clear textareas BEFORE switching views
+        if (!textOverride) {
+            if (homeTA) homeTA.value = '';
+            if (chatTA) chatTA.value = '';
+        }
         switchToChat();
-    }
-
-    if (!textOverride) {
+    } else if (!textOverride) {
         if (homeTA) homeTA.value = '';
         if (chatTA) chatTA.value = '';
     }
@@ -599,7 +610,9 @@ async function sendMessage(textOverride = null, isQueued = false) {
     if (!currentSessionId) {
         const session = await db.createSession('New Chat', activeModel);
         currentSessionId = session.id;
-        switchToChat();
+        if (activeView !== 'chat') {
+            switchToChat();
+        }
     }
 
     let promptToDisplay = text;
@@ -716,9 +729,25 @@ async function sendMessage(textOverride = null, isQueued = false) {
     
     await syncSessionToDisk(currentSessionId);
     await updateAIPersona();
+    
+    // Reset UI state - ensure textarea is ready for next input
+    resetChatUI();
+    
     if (messageQueue.length > 0) {
         const nextMsg = messageQueue.shift();
         sendMessage(nextMsg, true);
+    }
+}
+
+function resetChatUI() {
+    isGenerating = false;
+    setGeneratingUI(false);
+    // Ensure chat textarea is focused and ready
+    if (chatTA && activeView === 'chat') {
+        setTimeout(() => {
+            chatTA.focus();
+            chatTA.dispatchEvent(new Event('input', { bubbles: true }));
+        }, 100);
     }
 }
 
@@ -1407,12 +1436,24 @@ bindTA(chatTA, chatSendBtn);
 
 homeSendBtn?.addEventListener('click', () => {
     const val = homeTA.value.trim();
-    if (val) { homeTA.value = ''; switchToChat(); sendMessage(val); }
+    if (val) { 
+        homeTA.value = '';
+        // Trigger input event to update button state
+        homeTA.dispatchEvent(new Event('input', { bubbles: true }));
+        switchToChat(); 
+        sendMessage(val); 
+    }
 });
 
 chatSendBtn?.addEventListener('click', () => {
     const val = chatTA.value.trim();
-    if (val) { chatTA.value = ''; chatTA.style.height = 'auto'; sendMessage(val); }
+    if (val) { 
+        chatTA.value = ''; 
+        chatTA.style.height = 'auto';
+        // Trigger input event to update button state
+        chatTA.dispatchEvent(new Event('input', { bubbles: true }));
+        sendMessage(val); 
+    }
 });
 
 const openModelDrop = (btn) => {

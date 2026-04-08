@@ -1,9 +1,19 @@
 {
   "sessions": [
     {
+      "id": "sess_1775638537160_5d23q",
+      "title": "Hello! I'm just a computer program, so",
+      "updatedAt": "2026-04-08T08:56:13.088Z"
+    },
+    {
+      "id": "sess_1775631591404_i2fgo",
+      "title": "Hello! How can I assist you today?",
+      "updatedAt": "2026-04-08T06:59:52.415Z"
+    },
+    {
       "id": "sess_1775620930153_bpyfq",
-      "title": "New Chat...",
-      "updatedAt": "2026-04-08T04:02:10.169Z"
+      "title": "Hello! How can I assist you today?",
+      "updatedAt": "2026-04-08T04:02:13.583Z"
     },
     {
       "id": "sess_1775586832419_3qpjh",
@@ -211,7 +221,67 @@
       "content": "Hello! How can I assist you today?",
       "sessionId": "sess_1775620930153_bpyfq",
       "timestamp": "2026-04-08T04:02:10.167Z"
+    },
+    {
+      "role": "user",
+      "content": "hello",
+      "sessionId": "sess_1775631591404_i2fgo",
+      "timestamp": "2026-04-08T06:59:51.427Z"
+    },
+    {
+      "role": "assistant",
+      "content": "Hello! How can I assist you today?",
+      "sessionId": "sess_1775631591404_i2fgo",
+      "timestamp": "2026-04-08T06:59:51.427Z"
+    },
+    {
+      "role": "user",
+      "content": "hello bro how are you",
+      "sessionId": "sess_1775638537160_5d23q",
+      "timestamp": "2026-04-08T08:55:37.173Z"
+    },
+    {
+      "role": "assistant",
+      "content": "Hello! I'm just a computer program, so I don't have feelings, but I'm here and ready to help you. How can I assist you today?",
+      "sessionId": "sess_1775638537160_5d23q",
+      "timestamp": "2026-04-08T08:55:37.173Z"
+    },
+    {
+      "role": "user",
+      "content": "ok tell me today date",
+      "sessionId": "sess_1775638537160_5d23q",
+      "timestamp": "2026-04-08T08:55:52.887Z"
+    },
+    {
+      "role": "assistant",
+      "content": "I'm sorry for any confusion, but as an AI model, I don't have access to real-time information such as the current date. However, you can easily find the current date on your device or by doing a quick search online.",
+      "sessionId": "sess_1775638537160_5d23q",
+      "timestamp": "2026-04-08T08:55:52.887Z"
+    },
+    {
+      "role": "user",
+      "content": "i am rudra",
+      "sessionId": "sess_1775638537160_5d23q",
+      "timestamp": "2026-04-08T08:56:04.355Z"
+    },
+    {
+      "role": "assistant",
+      "content": "Hello Rudra! How can I assist you today?",
+      "sessionId": "sess_1775638537160_5d23q",
+      "timestamp": "2026-04-08T08:56:04.355Z"
+    },
+    {
+      "role": "user",
+      "content": "fuck offf",
+      "sessionId": "sess_1775638537160_5d23q",
+      "timestamp": "2026-04-08T08:56:13.076Z"
+    },
+    {
+      "role": "assistant",
+      "content": "I'm sorry if there was something that upset you, but please try to use language that is respectful and considerate. If you have any questions or need help with something specific, I'm here to assist you. Let me know how I can help.",
+      "sessionId": "sess_1775638537160_5d23q",
+      "timestamp": "2026-04-08T08:56:13.077Z"
     }
   ],
-  "lastUpdated": "2026-04-08T04:02:13.369Z"
+  "lastUpdated": "2026-04-08T08:56:14.112Z"
 }

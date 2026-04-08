@@ -1,0 +1,79 @@
+{
+  "id": "sess_1775638537160_5d23q",
+  "title": "Hello! I'm just a computer program, so",
+  "model": "agent",
+  "createdAt": "2026-04-08T08:55:37.160Z",
+  "updatedAt": "2026-04-08T08:56:13.088Z",
+  "isPinned": false,
+  "folderId": null,
+  "messages": [
+    {
+      "sessionId": "sess_1775638537160_5d23q",
+      "role": "user",
+      "content": "hello bro how are you",
+      "timestamp": "2026-04-08T08:55:37.173Z",
+      "model": "agent",
+      "id": 33
+    },
+    {
+      "sessionId": "sess_1775638537160_5d23q",
+      "role": "assistant",
+      "content": "Hello! I'm just a computer program, so I don't have feelings, but I'm here and ready to help you. How can I assist you today?",
+      "timestamp": "2026-04-08T08:55:37.173Z",
+      "model": "agent",
+      "interrupted": false,
+      "id": 34
+    },
+    {
+      "sessionId": "sess_1775638537160_5d23q",
+      "role": "user",
+      "content": "ok tell me today date",
+      "timestamp": "2026-04-08T08:55:52.887Z",
+      "model": "agent",
+      "id": 35
+    },
+    {
+      "sessionId": "sess_1775638537160_5d23q",
+      "role": "assistant",
+      "content": "I'm sorry for any confusion, but as an AI model, I don't have access to real-time information such as the current date. However, you can easily find the current date on your device or by doing a quick search online.",
+      "timestamp": "2026-04-08T08:55:52.887Z",
+      "model": "agent",
+      "interrupted": false,
+      "id": 36
+    },
+    {
+      "sessionId": "sess_1775638537160_5d23q",
+      "role": "user",
+      "content": "i am rudra",
+      "timestamp": "2026-04-08T08:56:04.355Z",
+      "model": "agent",
+      "id": 37
+    },
+    {
+      "sessionId": "sess_1775638537160_5d23q",
+      "role": "assistant",
+      "content": "Hello Rudra! How can I assist you today?",
+      "timestamp": "2026-04-08T08:56:04.355Z",
+      "model": "agent",
+      "interrupted": false,
+      "id": 38
+    },
+    {
+      "sessionId": "sess_1775638537160_5d23q",
+      "role": "user",
+      "content": "fuck offf",
+      "timestamp": "2026-04-08T08:56:13.076Z",
+      "model": "agent",
+      "id": 39
+    },
+    {
+      "sessionId": "sess_1775638537160_5d23q",
+      "role": "assistant",
+      "content": "I'm sorry if there was something that upset you, but please try to use language that is respectful and considerate. If you have any questions or need help with something specific, I'm here to assist you. Let me know how I can help.",
+      "timestamp": "2026-04-08T08:56:13.077Z",
+      "model": "agent",
+      "interrupted": false,
+      "id": 40
+    }
+  ]
+}
