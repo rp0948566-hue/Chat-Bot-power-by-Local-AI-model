@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/style.css">
-    <link rel="icon" type="image/jpeg" href="/favicon.jpg">
+    <link rel="icon" type="image/png" href="/biohazard_icon_clean.png">
 </head>
 <body>
 
@@ -82,7 +82,9 @@
             <div class="header-right"></div>
         </header>
         <main class="home-main">
-            <div class="hero-title">TEJAS</div>
+            <div class="hero-logo-wrap">
+                <img src="/biohazard_clean.png" alt="Biohazard Logo" class="hero-biohazard-img" draggable="false" />
+            </div>
             <div class="input-box" id="home-input-box" style="position:relative; z-index:50;">
                 <textarea id="home-textarea" placeholder="Ask away. Pics work too." style="position:relative; z-index:50;"></textarea>
                     <div class="input-toolbar">
@@ -163,6 +165,22 @@
         </div>
     </div>
 
+</div>
+
+<!-- ── THINKING PANEL (Right Side Slide-in) ── -->
+<div class="thinking-panel" id="thinking-panel">
+    <div class="thinking-panel-header">
+        <div class="thinking-panel-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+            <span>Thinking Process</span>
+        </div>
+        <button class="thinking-panel-close" id="thinking-panel-close" title="Close">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+    </div>
+    <div class="thinking-panel-body" id="thinking-panel-body">
+        <!-- Thinking steps rendered here by JS -->
+    </div>
 </div>
 
 <input type="file" id="global-file-input" style="display:none;">

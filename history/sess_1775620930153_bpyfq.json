@@ -1,0 +1,28 @@
+{
+  "id": "sess_1775620930153_bpyfq",
+  "title": "New Chat...",
+  "model": "agent",
+  "createdAt": "2026-04-08T04:02:10.153Z",
+  "updatedAt": "2026-04-08T04:02:10.169Z",
+  "isPinned": false,
+  "folderId": null,
+  "messages": [
+    {
+      "sessionId": "sess_1775620930153_bpyfq",
+      "role": "user",
+      "content": "hello",
+      "timestamp": "2026-04-08T04:02:10.167Z",
+      "model": "agent",
+      "id": 29
+    },
+    {
+      "sessionId": "sess_1775620930153_bpyfq",
+      "role": "assistant",
+      "content": "Hello! How can I assist you today?",
+      "timestamp": "2026-04-08T04:02:10.167Z",
+      "model": "agent",
+      "interrupted": false,
+      "id": 30
+    }
+  ]
+}

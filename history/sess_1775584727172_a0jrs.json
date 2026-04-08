@@ -1,0 +1,79 @@
+{
+  "id": "sess_1775584727172_a0jrs",
+  "title": "Hello Rudra! It's nice to meet you.",
+  "model": "agent",
+  "createdAt": "2026-04-07T17:58:47.172Z",
+  "updatedAt": "2026-04-07T18:09:09.587Z",
+  "isPinned": false,
+  "folderId": null,
+  "messages": [
+    {
+      "sessionId": "sess_1775584727172_a0jrs",
+      "role": "user",
+      "content": "hello i am rudra broo",
+      "timestamp": "2026-04-07T17:58:47.176Z",
+      "model": "agent",
+      "id": 9
+    },
+    {
+      "sessionId": "sess_1775584727172_a0jrs",
+      "role": "assistant",
+      "content": "Hello Rudra! How can I assist you today?",
+      "timestamp": "2026-04-07T17:58:47.176Z",
+      "model": "agent",
+      "interrupted": false,
+      "id": 10
+    },
+    {
+      "sessionId": "sess_1775584727172_a0jrs",
+      "role": "user",
+      "content": "hello",
+      "timestamp": "2026-04-07T18:05:14.647Z",
+      "model": "agent",
+      "id": 11
+    },
+    {
+      "sessionId": "sess_1775584727172_a0jrs",
+      "role": "assistant",
+      "content": "Hello! How can I help you today?",
+      "timestamp": "2026-04-07T18:05:14.648Z",
+      "model": "agent",
+      "interrupted": false,
+      "id": 12
+    },
+    {
+      "sessionId": "sess_1775584727172_a0jrs",
+      "role": "user",
+      "content": "give me a applicone at 400 word of python i am rudra only on thos",
+      "timestamp": "2026-04-07T18:05:44.168Z",
+      "model": "agent",
+      "id": 13
+    },
+    {
+      "sessionId": "sess_1775584727172_a0jrs",
+      "role": "assistant",
+      "content": "Certainly! Below is a Python script that demonstrates how to create a simple calculator application. This application allows users to perform basic arithmetic operations such as addition, subtraction, multiplication, and division.\n\n```python\ndef add(x, y):\n    \"\"\"Function to add two numbers.\"\"\"\n    return x + y\n\ndef subtract(x, y):\n    \"\"\"Function to subtract two numbers.\"\"\"\n    return x - y\n\ndef multiply(x, y):\n    \"\"\"Function to multiply two numbers.\"\"\"\n    return x * y\n\ndef divide(x, y):\n    \"\"\"Function to divide two numbers.\"\"\"\n    if y == 0:\n        return \"Error! Division by zero.\"\n    else:\n        return x / y\n\ndef calculator():\n    print(\"Select operation:\")\n    print(\"1. Add\")\n    print(\"2. Subtract\")\n    print(\"3. Multiply\")\n    print(\"4. Divide\")\n\n    while True:\n        choice = input(\"Enter choice(1/2/3/4): \")\n\n        if choice in ['1', '2', '3', '4']:\n            try:\n                num1 = float(input(\"Enter first number: \"))\n                num2 = float(input(\"Enter second number: \"))\n            except ValueError:\n                print(\"Invalid input. Please enter numeric values.\")\n                continue\n\n            if choice == '1':\n                print(f\"{num1} + {num2} = {add(num1, num2)}\")\n\n            elif choice == '2':\n                print(f\"{num1} - {num2} = {subtract(num1, num2)}\")\n\n            elif choice == '3':\n                print(f\"{num1} * {num2} = {multiply(num1, num2)}\")\n\n            elif choice == '4':\n                result = divide(num1, num2)\n                print(f\"{num1} / {num2} = {result}\")\n\n        else:\n            print(\"Invalid input. Please enter a valid choice.\")\n\n        next_calculation = input(\"Do you want to perform another calculation? (yes/no): \")\n        if next_calculation.lower() != 'yes':\n            break\n\nif __name__ == \"__main__\":\n    calculator()\n```\n\nThis script defines four functions for basic arithmetic operations and a `calculator` function that provides a simple user interface to interact with the user. The application runs in a loop, allowing the user to perform multiple calculations until they choose to exit.\n\nTo run this script, simply copy it into a Python file (e.g., `calculator.py`) and execute it using a Python interpreter:\n\n```sh\npython calculator.py\n```\n\nI hope you find this example useful! Let me know if you have any questions or need further assistance.",
+      "timestamp": "2026-04-07T18:05:44.168Z",
+      "model": "agent",
+      "interrupted": false,
+      "id": 14
+    },
+    {
+      "sessionId": "sess_1775584727172_a0jrs",
+      "role": "user",
+      "content": "📎 WhatsApp Image 2026-03-25 at 11.11.54 AM.jpeg\ncan you see this image",
+      "timestamp": "2026-04-07T18:09:09.586Z",
+      "model": "agent",
+      "id": 15
+    },
+    {
+      "sessionId": "sess_1775584727172_a0jrs",
+      "role": "assistant",
+      "content": "I'm unable to see or process images directly. If you have any questions or need help with something specific in the image, please describe it and I'll do my best to assist you!",
+      "timestamp": "2026-04-07T18:09:09.586Z",
+      "model": "agent",
+      "interrupted": false,
+      "id": 16
+    }
+  ]
+}

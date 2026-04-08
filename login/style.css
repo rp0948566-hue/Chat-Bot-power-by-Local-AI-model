@@ -219,6 +219,15 @@ body {
     letter-spacing: 4px;
 }
 
+.login-hero-img {
+    max-width: 200px;
+    height: auto;
+    object-fit: contain;
+    filter: drop-shadow(0 10px 25px rgba(220, 38, 38, 0.4)) contrast(1.1);
+    pointer-events: none;
+    user-select: none;
+}
+
 .preview-input {
     width: 70%;
     height: 52px;

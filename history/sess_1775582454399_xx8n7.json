@@ -1,9 +1,9 @@
 {
   "id": "sess_1775582454399_xx8n7",
-  "title": "New Chat...",
+  "title": "Hello! How can I assist you today?",
   "model": "agent",
   "createdAt": "2026-04-07T17:20:54.399Z",
-  "updatedAt": "2026-04-07T17:20:54.414Z",
+  "updatedAt": "2026-04-07T17:48:05.827Z",
   "isPinned": false,
   "folderId": null,
   "messages": [
@@ -23,6 +23,40 @@
       "model": "agent",
       "interrupted": false,
       "id": 4
+    },
+    {
+      "sessionId": "sess_1775582454399_xx8n7",
+      "role": "user",
+      "content": "hello i am rudra",
+      "timestamp": "2026-04-07T17:47:19.824Z",
+      "model": "agent",
+      "id": 5
+    },
+    {
+      "sessionId": "sess_1775582454399_xx8n7",
+      "role": "assistant",
+      "content": "Hello Rudra! It's nice to meet you. Is there anything specific you'd like to talk about or ask me?",
+      "timestamp": "2026-04-07T17:47:19.824Z",
+      "model": "agent",
+      "interrupted": false,
+      "id": 6
+    },
+    {
+      "sessionId": "sess_1775582454399_xx8n7",
+      "role": "user",
+      "content": "tell you can you eid my file foler wich is at vedio area",
+      "timestamp": "2026-04-07T17:48:05.818Z",
+      "model": "agent",
+      "id": 7
+    },
+    {
+      "sessionId": "sess_1775582454399_xx8n7",
+      "role": "assistant",
+      "content": "I'm sorry for any confusion, but as an AI language model, I don't have the capability to access or edit files on your device. You'll need to do that yourself by accessing your file folder through your computer's file system or a file management application. If you need help with instructions or navigating your device, feel free to ask!",
+      "timestamp": "2026-04-07T17:48:05.819Z",
+      "model": "agent",
+      "interrupted": false,
+      "id": 8
     }
   ]
 }
